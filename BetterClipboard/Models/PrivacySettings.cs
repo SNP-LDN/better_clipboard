@@ -20,6 +20,7 @@ public sealed class PrivacySettings
     public bool IgnoreImages { get; set; }
     public AppThemeMode ThemeMode { get; set; } = AppThemeMode.System;
     public AppThemePreset ThemePreset { get; set; } = AppThemePreset.Standard;
+    public int GlassOpacity { get; set; } = 84;
     public List<string> BlockedApps { get; set; } =
     [
         "1password",

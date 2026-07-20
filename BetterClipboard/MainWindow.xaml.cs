@@ -16,6 +16,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly PrivacyService _privacy;
     private readonly SettingsService _settings;
     private readonly DiagnosticLog _log;
+    private readonly Icon _brandIcon;
     private readonly Forms.NotifyIcon _trayIcon;
     private HwndSource? _source;
     private PopupWindow? _popup;
@@ -42,6 +43,7 @@ public partial class MainWindow : Window, IDisposable
         _privacy = privacy;
         _settings = settings;
         _log = log;
+        _brandIcon = LoadBrandIcon();
         _trayIcon = BuildTrayIcon();
 
         SourceInitialized += OnSourceInitialized;
@@ -67,6 +69,7 @@ public partial class MainWindow : Window, IDisposable
 
         _trayIcon.Visible = false;
         _trayIcon.Dispose();
+        _brandIcon.Dispose();
         _popup?.Close();
         _settingsWindow?.Close();
     }
@@ -86,7 +89,7 @@ public partial class MainWindow : Window, IDisposable
 
         var icon = new Forms.NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = _brandIcon,
             Text = "Better Clipboard",
             Visible = true,
             ContextMenuStrip = menu
@@ -94,6 +97,29 @@ public partial class MainWindow : Window, IDisposable
 
         icon.DoubleClick += (_, _) => ShowHistory();
         return icon;
+    }
+
+    private static Icon LoadBrandIcon()
+    {
+        try
+        {
+            var resource = System.Windows.Application.GetResourceStream(
+                new Uri("Assets/Brand/better-clipboard.ico", UriKind.Relative));
+            if (resource is not null)
+            {
+                using (resource.Stream)
+                using (var icon = new Icon(resource.Stream))
+                {
+                    return (Icon)icon.Clone();
+                }
+            }
+        }
+        catch
+        {
+            // The executable icon remains available even if the WPF resource cannot be loaded.
+        }
+
+        return (Icon)SystemIcons.Application.Clone();
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)

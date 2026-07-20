@@ -14,6 +14,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         _settings = settings;
+        GlassOpacitySlider.ValueChanged += GlassOpacitySlider_ValueChanged;
         LoadSettings();
     }
 
@@ -27,6 +28,9 @@ public partial class SettingsWindow : Window
             BlockedAppsBox.Text = string.Join(Environment.NewLine, _settings.Settings.BlockedApps);
             SelectComboBoxTag(ThemeModeBox, _settings.Settings.ThemeMode.ToString());
             SelectComboBoxTag(ThemePresetBox, _settings.Settings.ThemePreset.ToString());
+            GlassOpacitySlider.Value = Math.Clamp(_settings.Settings.GlassOpacity, 55, 95);
+            GlassOpacityText.Text = $"{GlassOpacitySlider.Value:0}%";
+            UpdateGlassOpacityVisibility();
             RefreshPauseStatus();
         }
         finally
@@ -48,8 +52,31 @@ public partial class SettingsWindow : Window
 
         _settings.Settings.ThemeMode = mode;
         _settings.Settings.ThemePreset = preset;
+        UpdateGlassOpacityVisibility();
         _settings.Save();
         ThemeManager.Apply(_settings.Settings);
+    }
+
+    private void GlassOpacitySlider_ValueChanged(
+        object sender,
+        RoutedPropertyChangedEventArgs<double> e)
+    {
+        GlassOpacityText.Text = $"{e.NewValue:0}%";
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        _settings.Settings.GlassOpacity = (int)Math.Round(e.NewValue);
+        _settings.Save();
+        ThemeManager.Apply(_settings.Settings);
+    }
+
+    private void UpdateGlassOpacityVisibility()
+    {
+        var isGlass = ThemePresetBox?.SelectedItem is ComboBoxItem item &&
+                      string.Equals(item.Tag?.ToString(), "Glass", StringComparison.OrdinalIgnoreCase);
+        GlassOpacityPanel.Visibility = isGlass ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void SelectComboBoxTag(System.Windows.Controls.ComboBox comboBox, string tag)

@@ -191,6 +191,24 @@ public sealed class ClipboardStore
         Save();
     }
 
+    public int DeleteMany(IEnumerable<Guid> ids)
+    {
+        var selectedIds = ids.ToHashSet();
+        var removed = _items.Where(item => selectedIds.Contains(item.Id)).ToList();
+        foreach (var item in removed)
+        {
+            _items.Remove(item);
+            DeleteImageFile(item);
+        }
+
+        if (removed.Count > 0)
+        {
+            Save();
+        }
+
+        return removed.Count;
+    }
+
     public void DeleteUnfavorited()
     {
         var removed = _items.Where(item => !item.IsFavorite).ToList();

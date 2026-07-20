@@ -5,7 +5,10 @@ namespace BetterClipboard.Services;
 
 public sealed class ClipboardListItem
 {
-    public ClipboardListItem(ClipboardItem item, ImageSource? imagePreview = null)
+    public ClipboardListItem(
+        ClipboardItem item,
+        ImageSource? imagePreview = null,
+        bool isSelectedForDelete = false)
     {
         Id = item.Id;
         PreviewText = item.PreviewText;
@@ -31,6 +34,7 @@ public sealed class ClipboardListItem
         };
         PrivacyText = item.IsSensitive ? item.PrivacyLabel : "";
         CopyCountText = item.CopyCount > 1 ? $"x{item.CopyCount}" : "";
+        IsSelectedForDelete = isSelectedForDelete;
     }
 
     public Guid Id { get; }
@@ -47,6 +51,7 @@ public sealed class ClipboardListItem
     public string LengthText { get; }
     public string PrivacyText { get; }
     public string CopyCountText { get; }
+    public bool IsSelectedForDelete { get; set; }
 
     private static string BuildTimeGroup(DateTimeOffset copiedAt)
     {

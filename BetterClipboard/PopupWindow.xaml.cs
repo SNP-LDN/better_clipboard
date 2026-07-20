@@ -19,6 +19,7 @@ public partial class PopupWindow : Window
     private readonly DiagnosticLog _log;
     private readonly ObservableCollection<ClipboardListItem> _items = [];
     private readonly ObservableCollection<ClipboardListItem> _favoriteItems = [];
+    private readonly HashSet<Guid> _selectedItemIds = [];
     private readonly ListCollectionView _historyView;
     private readonly ListCollectionView _favoritesView;
     private string? _settingsStatusMessage;
@@ -35,6 +36,7 @@ public partial class PopupWindow : Window
         _pasteCallback = pasteCallback;
         _settings = settings;
         _log = log;
+        GlassOpacitySlider.ValueChanged += GlassOpacitySlider_ValueChanged;
         _historyView = CreateGroupedView(_items);
         _favoritesView = CreateGroupedView(_favoriteItems);
         HistoryList.ItemsSource = _historyView;
@@ -59,6 +61,7 @@ public partial class PopupWindow : Window
 
     public void Refresh()
     {
+        _selectedItemIds.IntersectWith(_store.Items.Select(item => item.Id));
         var selectedHistoryId = (HistoryList.SelectedItem as ClipboardListItem)?.Id;
         var selectedFavoriteId = (FavoriteList.SelectedItem as ClipboardListItem)?.Id;
         var query = SearchBox.Text.Trim();
@@ -69,7 +72,8 @@ public partial class PopupWindow : Window
                 item.SourceApp.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Select(item => new ClipboardListItem(
                 item,
-                item.Kind == Models.ClipboardItemKind.Image ? _store.GetImagePreview(item.Id) : null))
+                item.Kind == Models.ClipboardItemKind.Image ? _store.GetImagePreview(item.Id) : null,
+                _selectedItemIds.Contains(item.Id)))
             .ToList();
 
         ReplaceItems(_items, filtered);
@@ -78,6 +82,7 @@ public partial class PopupWindow : Window
         RestoreSelection(FavoriteList, _favoriteItems, selectedFavoriteId);
 
         RefreshCaptureStatus();
+        UpdateDeleteSelectedButton();
         SearchPanel.Visibility = IsSettingsTabActive() ? Visibility.Collapsed : Visibility.Visible;
         if (IsSettingsTabActive())
         {
@@ -95,6 +100,7 @@ public partial class PopupWindow : Window
     public void ShowNearCursor()
     {
         ThemeManager.Apply(_settings.Settings);
+        _selectedItemIds.Clear();
         HistoryList.SelectedItem = null;
         FavoriteList.SelectedItem = null;
         LoadSettingsInputs();
@@ -177,7 +183,8 @@ public partial class PopupWindow : Window
             return;
         }
 
-        if (FindParent<System.Windows.Controls.Button>(e.OriginalSource as DependencyObject) is not null)
+        if (FindParent<System.Windows.Controls.Button>(e.OriginalSource as DependencyObject) is not null ||
+            FindParent<System.Windows.Controls.CheckBox>(e.OriginalSource as DependencyObject) is not null)
         {
             return;
         }
@@ -280,7 +287,10 @@ public partial class PopupWindow : Window
             SaveImagesCheckBox is null ||
             BlockedAppsBox is null ||
             ThemeModeBox is null ||
-            ThemePresetBox is null)
+            ThemePresetBox is null ||
+            GlassOpacitySlider is null ||
+            GlassOpacityText is null ||
+            GlassOpacityPanel is null)
         {
             return;
         }
@@ -293,6 +303,9 @@ public partial class PopupWindow : Window
             BlockedAppsBox.Text = string.Join(Environment.NewLine, _settings.Settings.BlockedApps);
             SelectComboBoxTag(ThemeModeBox, _settings.Settings.ThemeMode.ToString());
             SelectComboBoxTag(ThemePresetBox, _settings.Settings.ThemePreset.ToString());
+            GlassOpacitySlider.Value = Math.Clamp(_settings.Settings.GlassOpacity, 55, 95);
+            GlassOpacityText.Text = $"{GlassOpacitySlider.Value:0}%";
+            UpdateGlassOpacityVisibility();
             _settingsStatusMessage = null;
         }
         finally
@@ -314,6 +327,7 @@ public partial class PopupWindow : Window
 
         _settings.Settings.ThemeMode = mode;
         _settings.Settings.ThemePreset = preset;
+        UpdateGlassOpacityVisibility();
         _settings.Save();
         ThemeManager.Apply(_settings.Settings);
         _settingsStatusMessage = "外观已更新。";
@@ -321,6 +335,42 @@ public partial class PopupWindow : Window
         {
             StatusText.Text = _settingsStatusMessage;
         }
+    }
+
+    private void GlassOpacitySlider_ValueChanged(
+        object sender,
+        RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (GlassOpacityText is not null)
+        {
+            GlassOpacityText.Text = $"{e.NewValue:0}%";
+        }
+
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        _settings.Settings.GlassOpacity = (int)Math.Round(e.NewValue);
+        _settings.Save();
+        ThemeManager.Apply(_settings.Settings);
+        _settingsStatusMessage = "玻璃透明度已更新。";
+        if (StatusText is not null)
+        {
+            StatusText.Text = _settingsStatusMessage;
+        }
+    }
+
+    private void UpdateGlassOpacityVisibility()
+    {
+        if (GlassOpacityPanel is null)
+        {
+            return;
+        }
+
+        var isGlass = ThemePresetBox?.SelectedItem is ComboBoxItem item &&
+                      string.Equals(item.Tag?.ToString(), "Glass", StringComparison.OrdinalIgnoreCase);
+        GlassOpacityPanel.Visibility = isGlass ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void SelectComboBoxTag(System.Windows.Controls.ComboBox comboBox, string tag)
@@ -456,10 +506,68 @@ public partial class PopupWindow : Window
     {
         if (sender is System.Windows.Controls.Button { Tag: Guid id })
         {
+            _selectedItemIds.Remove(id);
             _store.Delete(id);
             Refresh();
             e.Handled = true;
         }
+    }
+
+    private void SelectionCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.CheckBox { Tag: Guid id } checkBox)
+        {
+            return;
+        }
+
+        if (checkBox.IsChecked == true)
+        {
+            _selectedItemIds.Add(id);
+        }
+        else
+        {
+            _selectedItemIds.Remove(id);
+        }
+
+        UpdateDeleteSelectedButton();
+        e.Handled = true;
+    }
+
+    private void DeleteSelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedItemIds.Count == 0)
+        {
+            return;
+        }
+
+        var count = _selectedItemIds.Count;
+        var result = System.Windows.MessageBox.Show(
+            this,
+            $"确定删除选中的 {count} 条记录吗？此操作无法撤销。",
+            "删除所选记录",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var removedCount = _store.DeleteMany(_selectedItemIds);
+        _selectedItemIds.Clear();
+        Refresh();
+        StatusText.Text = $"已删除 {removedCount} 条记录。";
+        e.Handled = true;
+    }
+
+    private void UpdateDeleteSelectedButton()
+    {
+        if (DeleteSelectedButton is null)
+        {
+            return;
+        }
+
+        DeleteSelectedButton.Content = $"删除所选 ({_selectedItemIds.Count})";
+        DeleteSelectedButton.IsEnabled = _selectedItemIds.Count > 0;
     }
 
     private void DeleteUnfavorited_Click(object sender, RoutedEventArgs e)
@@ -471,6 +579,14 @@ public partial class PopupWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         Hide();
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
     }
 
     private void Window_Deactivated(object sender, EventArgs e)
