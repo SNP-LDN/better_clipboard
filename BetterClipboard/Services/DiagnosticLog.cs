@@ -24,7 +24,7 @@ public sealed class DiagnosticLog
 
     public void Error(string area, string message, Exception exception)
     {
-        Write("ERROR", area, $"{message}; {exception.GetType().Name}: {exception.Message}");
+        Write("ERROR", area, $"{message}; {exception}");
     }
 
     public void OpenFolder()

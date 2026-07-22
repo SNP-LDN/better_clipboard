@@ -1,0 +1,102 @@
+name: Build and publish Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 1.0.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      VELOPACK_VERSION: "1.2.0"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Resolve version
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          $version = if ($env:EVENT_NAME -eq "workflow_dispatch") {
+            $env:INPUT_VERSION
+          } else {
+            $env:TAG_NAME.TrimStart("v")
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Version must use the format 1.2.3"
+          }
+
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publish application
+        shell: pwsh
+        run: |
+          dotnet publish BetterClipboard/BetterClipboard.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --output publish `
+            -p:Version=$env:APP_VERSION
+
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: dotnet tool install --global vpk --version $env:VELOPACK_VERSION
+
+      - name: Download previous release metadata
+        continue-on-error: true
+        shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          vpk download github `
+            --repoUrl "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY" `
+            --token $env:VPK_TOKEN `
+            --outputDir Releases
+
+      - name: Build installer and update packages
+        shell: pwsh
+        run: |
+          vpk pack `
+            --packId BetterClipboard `
+            --packVersion $env:APP_VERSION `
+            --packDir publish `
+            --mainExe BetterClipboard.exe `
+            --runtime win-x64 `
+            --packTitle "Better Clipboard" `
+            --packAuthors "SNP-LDN" `
+            --icon BetterClipboard/Assets/Brand/better-clipboard.ico `
+            --shortcuts "Desktop,StartMenuRoot,Startup" `
+            --outputDir Releases
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          vpk upload github `
+            --repoUrl "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY" `
+            --token $env:VPK_TOKEN `
+            --outputDir Releases `
+            --publish `
+            --releaseName "Better Clipboard v$env:APP_VERSION" `
+            --tag "v$env:APP_VERSION"

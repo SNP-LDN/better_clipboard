@@ -7,12 +7,14 @@ namespace BetterClipboard.Services;
 
 public sealed class ClipboardStore
 {
+    private const int ThumbnailCacheCapacity = 24;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly AppPaths _paths;
     private readonly EncryptionService _encryption;
     private readonly DiagnosticLog _log;
     private readonly List<ClipboardItem> _items = [];
-    private readonly Dictionary<Guid, BitmapSource> _thumbnailCache = [];
+    private readonly Dictionary<Guid, ThumbnailCacheEntry> _thumbnailCache = [];
+    private readonly LinkedList<Guid> _thumbnailCacheOrder = [];
 
     public ClipboardStore(AppPaths paths, EncryptionService encryption, DiagnosticLog log)
     {
@@ -151,7 +153,9 @@ public sealed class ClipboardStore
     {
         if (_thumbnailCache.TryGetValue(id, out var cached))
         {
-            return cached;
+            _thumbnailCacheOrder.Remove(cached.Node);
+            _thumbnailCacheOrder.AddLast(cached.Node);
+            return cached.Image;
         }
 
         var item = _items.FirstOrDefault(candidate => candidate.Id == id && candidate.Kind == ClipboardItemKind.Image);
@@ -159,10 +163,18 @@ public sealed class ClipboardStore
         var image = bytes is null ? null : ClipboardImageCodec.Decode(bytes, 140);
         if (image is not null)
         {
-            _thumbnailCache[id] = image;
+            var node = _thumbnailCacheOrder.AddLast(id);
+            _thumbnailCache[id] = new ThumbnailCacheEntry(image, node);
+            TrimThumbnailCache();
         }
 
         return image;
+    }
+
+    public void ClearThumbnailCache()
+    {
+        _thumbnailCache.Clear();
+        _thumbnailCacheOrder.Clear();
     }
 
     public void ToggleFavorite(Guid id)
@@ -281,7 +293,7 @@ public sealed class ClipboardStore
 
     private void DeleteImageFile(ClipboardItem item)
     {
-        _thumbnailCache.Remove(item.Id);
+        RemoveThumbnail(item.Id);
         if (item.Kind != ClipboardItemKind.Image || string.IsNullOrWhiteSpace(item.ImageFileName))
         {
             return;
@@ -299,6 +311,25 @@ public sealed class ClipboardStore
         {
             _log.Error("Store", $"Failed to delete image id={item.Id}", exception);
         }
+    }
+
+    private void TrimThumbnailCache()
+    {
+        while (_thumbnailCache.Count > ThumbnailCacheCapacity && _thumbnailCacheOrder.First is { } oldest)
+        {
+            _thumbnailCache.Remove(oldest.Value);
+            _thumbnailCacheOrder.RemoveFirst();
+        }
+    }
+
+    private void RemoveThumbnail(Guid id)
+    {
+        if (!_thumbnailCache.Remove(id, out var cached))
+        {
+            return;
+        }
+
+        _thumbnailCacheOrder.Remove(cached.Node);
     }
 
     private void Load()
@@ -378,4 +409,6 @@ public sealed class ClipboardStore
         File.WriteAllText(_paths.StoreFile, json);
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    private sealed record ThumbnailCacheEntry(BitmapSource Image, LinkedListNode<Guid> Node);
 }

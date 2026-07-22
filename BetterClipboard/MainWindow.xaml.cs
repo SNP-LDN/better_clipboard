@@ -1,10 +1,10 @@
-using System.Drawing;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using BetterClipboard.Models;
 using BetterClipboard.Services;
-using Forms = System.Windows.Forms;
 
 namespace BetterClipboard;
 
@@ -15,9 +15,10 @@ public partial class MainWindow : Window, IDisposable
     private readonly ClipboardStore _store;
     private readonly PrivacyService _privacy;
     private readonly SettingsService _settings;
+    private readonly AppUpdateService _updates;
     private readonly DiagnosticLog _log;
-    private readonly Icon _brandIcon;
-    private readonly Forms.NotifyIcon _trayIcon;
+    private readonly ContextMenu _trayMenu;
+    private NativeTrayIcon? _trayIcon;
     private HwndSource? _source;
     private PopupWindow? _popup;
     private SettingsWindow? _settingsWindow;
@@ -36,15 +37,16 @@ public partial class MainWindow : Window, IDisposable
         ClipboardStore store,
         PrivacyService privacy,
         SettingsService settings,
+        AppUpdateService updates,
         DiagnosticLog log)
     {
         InitializeComponent();
         _store = store;
         _privacy = privacy;
         _settings = settings;
+        _updates = updates;
         _log = log;
-        _brandIcon = LoadBrandIcon();
-        _trayIcon = BuildTrayIcon();
+        _trayMenu = BuildTrayMenu();
 
         SourceInitialized += OnSourceInitialized;
         Loaded += (_, _) => Hide();
@@ -67,59 +69,53 @@ public partial class MainWindow : Window, IDisposable
             NativeMethods.UnregisterHotKey(handle, HistoryHotKeyId);
         }
 
-        _trayIcon.Visible = false;
-        _trayIcon.Dispose();
-        _brandIcon.Dispose();
+        _trayMenu.IsOpen = false;
+        _trayIcon?.Dispose();
+        _trayIcon = null;
         _popup?.Close();
         _settingsWindow?.Close();
     }
 
-    private Forms.NotifyIcon BuildTrayIcon()
+    private ContextMenu BuildTrayMenu()
     {
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("打开历史 (Ctrl+Alt+V)", null, (_, _) => ShowHistory());
-        menu.Items.Add("设置...", null, (_, _) => ShowSettings());
-        menu.Items.Add("暂停 5 分钟", null, (_, _) => PauseFor(TimeSpan.FromMinutes(5)));
-        menu.Items.Add("暂停 30 分钟", null, (_, _) => PauseFor(TimeSpan.FromMinutes(30)));
-        menu.Items.Add("暂停直到手动恢复", null, (_, _) => PauseUntilResume());
-        menu.Items.Add("恢复记录", null, (_, _) => ResumeCapture());
-        menu.Items.Add("清空未收藏", null, (_, _) => _store.DeleteUnfavorited());
-        menu.Items.Add("打开诊断日志", null, (_, _) => OpenLogFolder());
-        menu.Items.Add("退出", null, (_, _) => System.Windows.Application.Current.Shutdown());
-
-        var icon = new Forms.NotifyIcon
+        var menu = new ContextMenu
         {
-            Icon = _brandIcon,
-            Text = "Better Clipboard",
-            Visible = true,
-            ContextMenuStrip = menu
+            Placement = PlacementMode.MousePoint,
+            StaysOpen = false,
+            Style = (Style)System.Windows.Application.Current.FindResource("TrayContextMenuStyle")
         };
 
-        icon.DoubleClick += (_, _) => ShowHistory();
-        return icon;
+        menu.Items.Add(CreateTrayMenuItem("打开历史 (Ctrl+Alt+V)", ShowHistory));
+        menu.Items.Add(CreateTrayMenuItem("设置...", ShowSettings));
+        menu.Items.Add(CreateTraySeparator());
+        menu.Items.Add(CreateTrayMenuItem("暂停 5 分钟", () => PauseFor(TimeSpan.FromMinutes(5))));
+        menu.Items.Add(CreateTrayMenuItem("暂停 30 分钟", () => PauseFor(TimeSpan.FromMinutes(30))));
+        menu.Items.Add(CreateTrayMenuItem("暂停直到手动恢复", PauseUntilResume));
+        menu.Items.Add(CreateTrayMenuItem("恢复记录", ResumeCapture));
+        menu.Items.Add(CreateTraySeparator());
+        menu.Items.Add(CreateTrayMenuItem("清空未收藏", _store.DeleteUnfavorited));
+        menu.Items.Add(CreateTrayMenuItem("打开诊断日志", OpenLogFolder));
+        menu.Items.Add(CreateTrayMenuItem("退出", () => System.Windows.Application.Current.Shutdown()));
+        return menu;
     }
 
-    private static Icon LoadBrandIcon()
+    private static MenuItem CreateTrayMenuItem(string header, Action action)
     {
-        try
+        var item = new MenuItem
         {
-            var resource = System.Windows.Application.GetResourceStream(
-                new Uri("Assets/Brand/better-clipboard.ico", UriKind.Relative));
-            if (resource is not null)
-            {
-                using (resource.Stream)
-                using (var icon = new Icon(resource.Stream))
-                {
-                    return (Icon)icon.Clone();
-                }
-            }
-        }
-        catch
-        {
-            // The executable icon remains available even if the WPF resource cannot be loaded.
-        }
+            Header = header,
+            Style = (Style)System.Windows.Application.Current.FindResource("TrayMenuItemStyle")
+        };
+        item.Click += (_, _) => action();
+        return item;
+    }
 
-        return (Icon)SystemIcons.Application.Clone();
+    private static Separator CreateTraySeparator()
+    {
+        return new Separator
+        {
+            Style = (Style)System.Windows.Application.Current.FindResource("TrayMenuSeparatorStyle")
+        };
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -134,12 +130,35 @@ public partial class MainWindow : Window, IDisposable
             HistoryHotKeyId,
             NativeMethods.ModControl | NativeMethods.ModAlt,
             NativeMethods.VkV);
+
+        try
+        {
+            _trayIcon = new NativeTrayIcon(
+                helper.Handle,
+                "Better Clipboard",
+                ShowHistory,
+                ShowTrayMenu);
+        }
+        catch (Exception exception)
+        {
+            _log.Error("Tray", "Failed to initialize the notification-area icon", exception);
+            Dispatcher.BeginInvoke(() => System.Windows.MessageBox.Show(
+                "系统托盘图标初始化失败，但仍可使用 Ctrl+Alt+V 打开剪贴板历史。",
+                "Better Clipboard",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning));
+        }
+
         _log.Info("Main", $"Listeners registered; window=0x{helper.Handle.ToInt64():X}");
     }
 
     private IntPtr WndProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (message == NativeMethods.WmClipboardUpdate)
+        if (_trayIcon?.HandleWindowMessage(message, lParam) == true)
+        {
+            handled = true;
+        }
+        else if (message == NativeMethods.WmClipboardUpdate)
         {
             _log.Info("Clipboard", "WM_CLIPBOARDUPDATE received");
             CaptureClipboard();
@@ -153,6 +172,11 @@ public partial class MainWindow : Window, IDisposable
         }
 
         return IntPtr.Zero;
+    }
+
+    private void ShowTrayMenu()
+    {
+        _trayMenu.IsOpen = true;
     }
 
     private void CaptureClipboard()
@@ -299,16 +323,31 @@ public partial class MainWindow : Window, IDisposable
         if (_popup is null || !_popup.IsLoaded)
         {
             _popup = new PopupWindow(_store, PasteItem, _settings, _log);
+            _popup.Closed += Popup_Closed;
         }
 
         _popup.ShowNearCursor();
+    }
+
+    private void Popup_Closed(object? sender, EventArgs e)
+    {
+        if (sender is not PopupWindow popup)
+        {
+            return;
+        }
+
+        popup.Closed -= Popup_Closed;
+        if (ReferenceEquals(_popup, popup))
+        {
+            _popup = null;
+        }
     }
 
     private void ShowSettings()
     {
         if (_settingsWindow is null || !_settingsWindow.IsLoaded)
         {
-            _settingsWindow = new SettingsWindow(_settings);
+            _settingsWindow = new SettingsWindow(_settings, _updates);
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }
 
@@ -457,19 +496,19 @@ public partial class MainWindow : Window, IDisposable
     private void PauseFor(TimeSpan duration)
     {
         _settings.PauseFor(duration);
-        _trayIcon.ShowBalloonTip(1500, "Better Clipboard", "剪贴板记录已暂停。", Forms.ToolTipIcon.Info);
+        _trayIcon?.ShowBalloonTip("Better Clipboard", "剪贴板记录已暂停。");
     }
 
     private void PauseUntilResume()
     {
         _settings.PauseUntilResume();
-        _trayIcon.ShowBalloonTip(1500, "Better Clipboard", "剪贴板记录已暂停，直到你手动恢复。", Forms.ToolTipIcon.Info);
+        _trayIcon?.ShowBalloonTip("Better Clipboard", "剪贴板记录已暂停，直到你手动恢复。");
     }
 
     private void ResumeCapture()
     {
         _settings.Resume();
-        _trayIcon.ShowBalloonTip(1500, "Better Clipboard", "剪贴板记录已恢复。", Forms.ToolTipIcon.Info);
+        _trayIcon?.ShowBalloonTip("Better Clipboard", "剪贴板记录已恢复。");
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)

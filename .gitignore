@@ -3,3 +3,7 @@
 .vs/
 *.user
 *.suo
+publish/
+publish-optimized/
+Releases/
+.tools/

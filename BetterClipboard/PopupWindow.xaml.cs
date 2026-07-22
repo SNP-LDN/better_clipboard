@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using BetterClipboard.Models;
 using BetterClipboard.Services;
 
@@ -22,8 +24,11 @@ public partial class PopupWindow : Window
     private readonly HashSet<Guid> _selectedItemIds = [];
     private readonly ListCollectionView _historyView;
     private readonly ListCollectionView _favoritesView;
+    private readonly DispatcherTimer _memoryUsageTimer;
+    private readonly Process _currentProcess;
     private string? _settingsStatusMessage;
     private bool _isLoadingSettings;
+    private bool _closeRequested;
 
     public PopupWindow(
         ClipboardStore store,
@@ -39,10 +44,63 @@ public partial class PopupWindow : Window
         GlassOpacitySlider.ValueChanged += GlassOpacitySlider_ValueChanged;
         _historyView = CreateGroupedView(_items);
         _favoritesView = CreateGroupedView(_favoriteItems);
+        _currentProcess = Process.GetCurrentProcess();
+        _memoryUsageTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _memoryUsageTimer.Tick += MemoryUsageTimer_Tick;
+        IsVisibleChanged += PopupWindow_IsVisibleChanged;
+        Closed += PopupWindow_Closed;
         HistoryList.ItemsSource = _historyView;
         FavoriteList.ItemsSource = _favoritesView;
         LoadSettingsInputs();
         Refresh();
+    }
+
+    private void MemoryUsageTimer_Tick(object? sender, EventArgs e)
+    {
+        UpdateMemoryUsage();
+    }
+
+    private void PopupWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        UpdateMemoryTimerState();
+    }
+
+    private void PopupWindow_Closed(object? sender, EventArgs e)
+    {
+        _closeRequested = true;
+        _memoryUsageTimer.Stop();
+        _memoryUsageTimer.Tick -= MemoryUsageTimer_Tick;
+        IsVisibleChanged -= PopupWindow_IsVisibleChanged;
+        Closed -= PopupWindow_Closed;
+        HistoryList.ItemsSource = null;
+        FavoriteList.ItemsSource = null;
+        _items.Clear();
+        _favoriteItems.Clear();
+        _selectedItemIds.Clear();
+        _store.ClearThumbnailCache();
+        _currentProcess.Dispose();
+    }
+
+    private void UpdateMemoryTimerState()
+    {
+        if (IsVisible)
+        {
+            UpdateMemoryUsage();
+            _memoryUsageTimer.Start();
+            return;
+        }
+
+        _memoryUsageTimer.Stop();
+    }
+
+    private void UpdateMemoryUsage()
+    {
+        _currentProcess.Refresh();
+        var memoryInMegabytes = _currentProcess.PrivateMemorySize64 / 1024d / 1024d;
+        MemoryUsageText.Text = $"内存 {memoryInMegabytes:0} MB";
     }
 
     private static ListCollectionView CreateGroupedView(ObservableCollection<ClipboardListItem> items)
@@ -61,18 +119,21 @@ public partial class PopupWindow : Window
 
     public void Refresh()
     {
-        _selectedItemIds.IntersectWith(_store.Items.Select(item => item.Id));
+        var storedItems = _store.Items;
+        _selectedItemIds.IntersectWith(storedItems.Select(item => item.Id));
         var selectedHistoryId = (HistoryList.SelectedItem as ClipboardListItem)?.Id;
         var selectedFavoriteId = (FavoriteList.SelectedItem as ClipboardListItem)?.Id;
         var query = SearchBox.Text.Trim();
-        var filtered = _store.Items
+        var filtered = storedItems
             .Where(item =>
                 string.IsNullOrWhiteSpace(query) ||
                 item.PreviewText.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 item.SourceApp.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Select(item => new ClipboardListItem(
                 item,
-                item.Kind == Models.ClipboardItemKind.Image ? _store.GetImagePreview(item.Id) : null,
+                item.Kind == Models.ClipboardItemKind.Image
+                    ? () => _store.GetImagePreview(item.Id)
+                    : null,
                 _selectedItemIds.Contains(item.Id)))
             .ToList();
 
@@ -86,7 +147,6 @@ public partial class PopupWindow : Window
         SearchPanel.Visibility = IsSettingsTabActive() ? Visibility.Collapsed : Visibility.Visible;
         if (IsSettingsTabActive())
         {
-            StatusText.Text = "暂停设置会立即生效。";
             StatusText.Text = _settingsStatusMessage ?? "设置变更需要点击保存。";
             return;
         }
@@ -190,7 +250,7 @@ public partial class PopupWindow : Window
         }
 
         _log.Info("Popup", $"Double-click selected id={item.Id}");
-        Hide();
+        RequestClose();
         e.Handled = true;
         await RunPasteCallback(item.Id, "double-click");
     }
@@ -217,7 +277,7 @@ public partial class PopupWindow : Window
 
         _log.Info("Popup", $"Opening large image preview; id={item.Id}");
         e.Handled = true;
-        Hide();
+        RequestClose();
         new ImagePreviewWindow(image).Show();
     }
 
@@ -225,7 +285,7 @@ public partial class PopupWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            Hide();
+            RequestClose();
             e.Handled = true;
             return;
         }
@@ -253,7 +313,7 @@ public partial class PopupWindow : Window
         }
 
         _log.Info("Popup", $"Enter selected id={item.Id}");
-        Hide();
+        RequestClose();
         await RunPasteCallback(item.Id, "enter");
     }
 
@@ -578,7 +638,7 @@ public partial class PopupWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        Hide();
+        RequestClose();
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -594,6 +654,17 @@ public partial class PopupWindow : Window
         _log.Info(
             "Popup",
             $"Deactivated; foreground=0x{NativeMethods.GetForegroundWindow().ToInt64():X}");
-        Hide();
+        RequestClose();
+    }
+
+    private void RequestClose()
+    {
+        if (_closeRequested)
+        {
+            return;
+        }
+
+        _closeRequested = true;
+        Close();
     }
 }

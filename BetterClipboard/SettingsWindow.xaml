@@ -4,7 +4,7 @@
         Title="设置"
         Icon="Assets/Brand/better-clipboard.ico"
         Width="430"
-        Height="620"
+        Height="690"
         MinWidth="390"
         MinHeight="520"
         WindowStartupLocation="CenterScreen"
@@ -37,6 +37,7 @@
                       HorizontalScrollBarVisibility="Disabled">
         <Grid Margin="0,0,5,0">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -215,6 +216,36 @@
                             Height="30"
                             VerticalAlignment="Center"
                             Click="Resume_Click" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="5"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    Background="{DynamicResource SurfaceBrush}"
+                    Padding="12"
+                    Margin="0,16,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="软件更新"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock x:Name="VersionText"
+                                   Margin="0,3,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="12" />
+                    </StackPanel>
+                    <Button x:Name="CheckUpdateButton"
+                            Grid.Column="1"
+                            Content="检查更新"
+                            Width="86"
+                            Height="30"
+                            VerticalAlignment="Center"
+                            Click="CheckUpdate_Click" />
                 </Grid>
             </Border>
         </Grid>

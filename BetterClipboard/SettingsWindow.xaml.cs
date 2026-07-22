@@ -8,12 +8,14 @@ namespace BetterClipboard;
 public partial class SettingsWindow : Window
 {
     private readonly SettingsService _settings;
+    private readonly AppUpdateService _updates;
     private bool _isLoadingSettings;
 
-    public SettingsWindow(SettingsService settings)
+    public SettingsWindow(SettingsService settings, AppUpdateService updates)
     {
         InitializeComponent();
         _settings = settings;
+        _updates = updates;
         GlassOpacitySlider.ValueChanged += GlassOpacitySlider_ValueChanged;
         LoadSettings();
     }
@@ -30,6 +32,7 @@ public partial class SettingsWindow : Window
             SelectComboBoxTag(ThemePresetBox, _settings.Settings.ThemePreset.ToString());
             GlassOpacitySlider.Value = Math.Clamp(_settings.Settings.GlassOpacity, 55, 95);
             GlassOpacityText.Text = $"{GlassOpacitySlider.Value:0}%";
+            VersionText.Text = $"当前版本：v{_updates.CurrentVersion}";
             UpdateGlassOpacityVisibility();
             RefreshPauseStatus();
         }
@@ -121,6 +124,21 @@ public partial class SettingsWindow : Window
     {
         _settings.Resume();
         RefreshPauseStatus();
+    }
+
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        CheckUpdateButton.Content = "正在检查";
+        try
+        {
+            await _updates.CheckForUpdatesAsync(this, interactive: true);
+        }
+        finally
+        {
+            CheckUpdateButton.Content = "检查更新";
+            CheckUpdateButton.IsEnabled = true;
+        }
     }
 
     private void ResetDefaults_Click(object sender, RoutedEventArgs e)

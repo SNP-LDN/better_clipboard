@@ -5,9 +5,13 @@ namespace BetterClipboard.Services;
 
 public sealed class ClipboardListItem
 {
+    private readonly Func<ImageSource?>? _imagePreviewLoader;
+    private ImageSource? _imagePreview;
+    private bool _imagePreviewLoaded;
+
     public ClipboardListItem(
         ClipboardItem item,
-        ImageSource? imagePreview = null,
+        Func<ImageSource?>? imagePreviewLoader = null,
         bool isSelectedForDelete = false)
     {
         Id = item.Id;
@@ -19,7 +23,7 @@ public sealed class ClipboardListItem
         CreatedText = item.LastCopiedAt.ToString("MM-dd HH:mm");
         FavoriteGlyph = item.IsFavorite ? "★" : "☆";
         IsImage = item.Kind == ClipboardItemKind.Image;
-        ImagePreview = imagePreview;
+        _imagePreviewLoader = imagePreviewLoader;
         KindText = item.Kind switch
         {
             ClipboardItemKind.FileList => "文件",
@@ -40,7 +44,19 @@ public sealed class ClipboardListItem
     public Guid Id { get; }
     public string PreviewText { get; }
     public bool IsImage { get; }
-    public ImageSource? ImagePreview { get; }
+    public ImageSource? ImagePreview
+    {
+        get
+        {
+            if (!_imagePreviewLoaded)
+            {
+                _imagePreview = _imagePreviewLoader?.Invoke();
+                _imagePreviewLoaded = true;
+            }
+
+            return _imagePreview;
+        }
+    }
     public bool IsFavorite { get; }
     public string SourceApp { get; }
     public DateTimeOffset LastCopiedAt { get; }

@@ -220,6 +220,84 @@
             <Style TargetType="Separator">
                 <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
             </Style>
+
+            <Style TargetType="ContextMenu">
+                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="2" />
+            </Style>
+
+            <Style x:Key="TrayContextMenuStyle" TargetType="ContextMenu">
+                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="2" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ContextMenu">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}"
+                                    SnapsToDevicePixels="True">
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              CanContentScroll="True">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="TrayMenuItemStyle" TargetType="MenuItem">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="Padding" Value="18,7" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="MenuItem">
+                            <Border x:Name="ItemBorder"
+                                    MinWidth="280"
+                                    Background="{TemplateBinding Background}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="Center"
+                                                  ContentSource="Header"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="TrayMenuSeparatorStyle" TargetType="Separator">
+                <Setter Property="Margin" Value="8,4" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Separator">
+                            <Border Height="1" Background="{DynamicResource BorderBrush}" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="MenuItem">
+                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="Padding" Value="10,5" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

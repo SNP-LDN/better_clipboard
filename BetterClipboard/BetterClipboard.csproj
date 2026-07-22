@@ -6,14 +6,24 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
+    <StartupObject>BetterClipboard.App</StartupObject>
     <ApplicationIcon>Assets\Brand\better-clipboard.ico</ApplicationIcon>
+    <VersionPrefix>1.0.4</VersionPrefix>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Assets\Brand\better-clipboard-app-icon.png" />
     <Resource Include="Assets\Brand\better-clipboard-logo.png" />
     <Resource Include="Assets\Brand\better-clipboard.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>
 
 </Project>
