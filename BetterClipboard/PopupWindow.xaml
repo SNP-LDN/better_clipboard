@@ -14,8 +14,10 @@
         Deactivated="Window_Deactivated"
         KeyDown="Window_KeyDown">
     <Window.Resources>
-        <Style x:Key="TimeGroupContainerStyle" TargetType="GroupItem">
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Style x:Key="TimeGroupContainerStyle"
+               TargetType="GroupItem">
+            <Setter Property="HorizontalContentAlignment"
+                    Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="GroupItem">
@@ -32,22 +34,23 @@
                                                    Text="{Binding ItemCount, StringFormat={}{0} 条}"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                                    FontSize="11"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding Name}"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                                    FontSize="12"
                                                    FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center"/>
                                     </DockPanel>
                                 </Border>
                             </Expander.Header>
-                            <ItemsPresenter />
+                            <ItemsPresenter/>
                         </Expander>
                         <ControlTemplate.Triggers>
-                            <DataTrigger Binding="{Binding Name}" Value="今天">
+                            <DataTrigger Binding="{Binding Name}"
+                                         Value="今天">
                                 <Setter TargetName="TimeGroupExpander"
                                         Property="IsExpanded"
-                                        Value="True" />
+                                        Value="True"/>
                             </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -55,431 +58,695 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Border BorderBrush="{DynamicResource BorderStrongBrush}"
-            BorderThickness="1"
-            Background="{DynamicResource ShellBackgroundBrush}"
-            CornerRadius="6">
-        <DockPanel>
-            <Border DockPanel.Dock="Top"
-                    Background="{DynamicResource TitleBarBrush}"
-                    Padding="12,8"
-                    CornerRadius="5,5,0,0"
-                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-                <Grid>
+    <Grid>
+        <Border BorderBrush="{DynamicResource BorderStrongBrush}"
+                BorderThickness="1"
+                Background="{DynamicResource ShellBackgroundBrush}"
+                CornerRadius="6">
+            <DockPanel>
+                <Border DockPanel.Dock="Top"
+                        Background="{DynamicResource TitleBarBrush}"
+                        Padding="12,8"
+                        CornerRadius="5,5,0,0"
+                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="24"
+                                Height="24"
+                                Margin="0,0,8,0"
+                                Padding="2"
+                                Background="#F2FFFFFF"
+                                CornerRadius="3">
+                            <Image Source="Assets/Brand/better-clipboard-app-icon.png"
+                                   Stretch="Uniform"/>
+                        </Border>
+                        <TextBlock Grid.Column="1"
+                                   Text="Better Clipboard"
+                                   Foreground="{DynamicResource TitleBarTextBrush}"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal">
+                            <Button x:Name="PinButton"
+                                    Width="28"
+                                    Height="24"
+                                    Margin="0,0,4,0"
+                                    Padding="5"
+                                    ToolTip="固定窗口"
+                                    Style="{StaticResource TitleBarButtonStyle}"
+                                    Click="Pin_Click">
+                                <Rectangle x:Name="PinIcon"
+                                           Width="14"
+                                           Height="14"
+                                           Fill="{DynamicResource TitleBarTextBrush}">
+                                    <Rectangle.OpacityMask>
+                                        <ImageBrush ImageSource="Assets/Brand/thumbtacks.png"
+                                                    Stretch="Uniform"/>
+                                    </Rectangle.OpacityMask>
+                                </Rectangle>
+                            </Button>
+                            <Button Content="×"
+                                    Width="28"
+                                    Height="24"
+                                    FontSize="16"
+                                    ToolTip="关闭"
+                                    Style="{StaticResource TitleBarButtonStyle}"
+                                    Click="Close_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid x:Name="SearchPanel"
+                      DockPanel.Dock="Top"
+                      Margin="10,10,10,8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Width="24"
-                            Height="24"
-                            Margin="0,0,8,0"
-                            Padding="2"
-                            Background="#F2FFFFFF"
-                            CornerRadius="3">
-                        <Image Source="Assets/Brand/better-clipboard-app-icon.png"
-                               Stretch="Uniform" />
-                    </Border>
-                    <TextBlock Grid.Column="1"
-                               Text="Better Clipboard"
-                               Foreground="{DynamicResource TitleBarTextBrush}"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center" />
-                    <Button Grid.Column="2"
-                            Content="×"
-                            Width="28"
-                            Height="24"
-                            FontSize="16"
-                            ToolTip="关闭"
-                            Style="{StaticResource TitleBarButtonStyle}"
-                            Click="Close_Click" />
+                    <TextBox x:Name="SearchBox"
+                             Height="30"
+                             Padding="8,5"
+                             FontSize="13"
+                             BorderBrush="{DynamicResource BorderStrongBrush}"
+                             TextChanged="SearchBox_TextChanged"/>
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                Margin="8,0,0,0">
+                        <Button x:Name="DeleteSelectedButton"
+                                Height="30"
+                                Width="98"
+                                Margin="0,0,6,0"
+                                Padding="8,0"
+                                FontSize="12"
+                                Content="删除所选 (0)"
+                                IsEnabled="False"
+                                Click="DeleteSelected_Click"/>
+                        <Button Height="30"
+                                Padding="9,0"
+                                FontSize="12"
+                                Content="清空未收藏"
+                                Click="DeleteUnfavorited_Click"/>
+                    </StackPanel>
                 </Grid>
-            </Border>
 
-            <Grid x:Name="SearchPanel" DockPanel.Dock="Top" Margin="10,10,10,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox x:Name="SearchBox"
-                         Height="30"
-                         Padding="8,5"
-                         FontSize="13"
-                         BorderBrush="{DynamicResource BorderStrongBrush}"
-                         TextChanged="SearchBox_TextChanged" />
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            Margin="8,0,0,0">
-                    <Button x:Name="DeleteSelectedButton"
-                            Height="30"
-                            Width="98"
-                            Margin="0,0,6,0"
-                            Padding="8,0"
-                            FontSize="12"
-                            Content="删除所选 (0)"
-                            IsEnabled="False"
-                            Click="DeleteSelected_Click" />
-                    <Button Height="30"
-                            Padding="9,0"
-                            FontSize="12"
-                            Content="清空未收藏"
-                            Click="DeleteUnfavorited_Click" />
-                </StackPanel>
-            </Grid>
+                <Grid DockPanel.Dock="Bottom"
+                      Margin="10,0,10,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="StatusText"
+                               Margin="0,0,12,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="MemoryUsageText"
+                               Grid.Column="1"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               ToolTip="Better Clipboard 私有内存，不含共享运行库"/>
+                </Grid>
 
-            <Grid DockPanel.Dock="Bottom"
-                  Margin="10,0,10,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="StatusText"
-                           Margin="0,0,12,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="11"
-                           TextTrimming="CharacterEllipsis" />
-                <TextBlock x:Name="MemoryUsageText"
-                           Grid.Column="1"
-                           Foreground="{DynamicResource TextMutedBrush}"
-                           FontSize="10"
-                           VerticalAlignment="Center"
-                           ToolTip="Better Clipboard 私有内存，不含共享运行库" />
-            </Grid>
-
-            <TabControl x:Name="Tabs"
-                        Margin="10,0,10,10"
-                        SelectionChanged="Tabs_SelectionChanged">
-                <TabItem Header="全部">
-                    <ListBox x:Name="HistoryList"
-                             BorderBrush="{DynamicResource BorderBrush}"
-                             Background="{DynamicResource SurfaceBrush}"
-                             PreviewMouseLeftButtonDown="HistoryList_PreviewMouseLeftButtonDown"
-                             PreviewMouseRightButtonUp="HistoryList_PreviewMouseRightButtonUp"
-                             VirtualizingPanel.IsVirtualizingWhenGrouping="True"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.GroupStyle>
-                            <GroupStyle ContainerStyle="{StaticResource TimeGroupContainerStyle}" />
-                        </ListBox.GroupStyle>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Height" Value="72" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
-                                    </Trigger>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Height="72" Margin="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="104" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel x:Name="TextLayout" Margin="9,10,6,6">
-                                        <TextBlock Text="{Binding PreviewText}"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                                   TextWrapping="NoWrap"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Height="20" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                            <TextBlock Text="{Binding KindText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
-                                            <TextBlock Text=" · " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" />
-                                            <TextBlock Text="{Binding SourceApp}"
-                                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                                       FontSize="11"
-                                                       MaxWidth="105"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text=" · " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" />
-                                            <TextBlock Text="{Binding LengthText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
-                                            <TextBlock Text=" · " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" />
-                                            <TextBlock Text="{Binding CreatedText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
-                                            <TextBlock Text=" " />
-                                            <TextBlock Text="{Binding CopyCountText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <Grid x:Name="ImageLayout"
-                                          Grid.Column="0"
-                                          Visibility="Collapsed">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="72" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border Width="62"
-                                                Height="60"
-                                                Margin="6"
-                                                BorderBrush="{DynamicResource BorderBrush}"
-                                                BorderThickness="1"
-                                                Background="{DynamicResource SurfaceAltBrush}">
-                                            <Image Source="{Binding ImagePreview}"
-                                                   Stretch="Uniform"
-                                                   SnapsToDevicePixels="True"
-                                                   ToolTip="右键查看大图" />
-                                        </Border>
-                                        <StackPanel Grid.Column="1" Margin="6,10,4,6">
-                                            <TextBlock Text="{Binding PreviewText}"
-                                                       FontSize="13"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                       TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Height="20" />
-                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                <TextBlock Text="{Binding SourceApp}"
-                                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                                           FontSize="11"
-                                                           MaxWidth="80"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text=" · " Foreground="{DynamicResource TextMutedBrush}" FontSize="11" />
-                                                <TextBlock Text="{Binding CreatedText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
-                                                <TextBlock Text=" " />
-                                                <TextBlock Text="{Binding CopyCountText}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" />
+                <TabControl x:Name="Tabs"
+                            Margin="10,0,10,10"
+                            SelectionChanged="Tabs_SelectionChanged">
+                    <TabItem Header="全部">
+                        <ListBox x:Name="HistoryList"
+                                 BorderBrush="{DynamicResource BorderBrush}"
+                                 Background="{DynamicResource SurfaceBrush}"
+                                 PreviewMouseLeftButtonDown="HistoryList_PreviewMouseLeftButtonDown"
+                                 PreviewMouseRightButtonUp="HistoryList_PreviewMouseRightButtonUp"
+                                 VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.GroupStyle>
+                                <GroupStyle ContainerStyle="{StaticResource TimeGroupContainerStyle}"/>
+                            </ListBox.GroupStyle>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment"
+                                            Value="Stretch"/>
+                                    <Setter Property="Height"
+                                            Value="72"/>
+                                    <Setter Property="Padding"
+                                            Value="0"/>
+                                    <Setter Property="Background"
+                                            Value="Transparent"/>
+                                    <Setter Property="Foreground"
+                                            Value="{DynamicResource TextPrimaryBrush}"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver"
+                                                 Value="True">
+                                            <Setter Property="Background"
+                                                    Value="{DynamicResource HoverBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected"
+                                                 Value="True">
+                                            <Setter Property="Background"
+                                                    Value="{DynamicResource SelectionBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="FavoriteCardBorder"
+                                            Height="70"
+                                            Margin="1"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="1"
+                                            SnapsToDevicePixels="True">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="104"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel x:Name="TextLayout"
+                                                        Margin="9,10,6,6">
+                                                <TextBlock Text="{Binding PreviewText}"
+                                                           FontSize="13"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextWrapping="NoWrap"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Height="20"/>
+                                                <StackPanel Orientation="Horizontal"
+                                                            Margin="0,4,0,0">
+                                                    <TextBlock Text="{Binding KindText}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="11"/>
+                                                    <TextBlock Text=" · "
+                                                               Foreground="{DynamicResource TextMutedBrush}"
+                                                               FontSize="11"/>
+                                                    <TextBlock Text="{Binding SourceApp}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="11"
+                                                               MaxWidth="105"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text=" · "
+                                                               Foreground="{DynamicResource TextMutedBrush}"
+                                                               FontSize="11"/>
+                                                    <TextBlock Text="{Binding LengthText}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="11"/>
+                                                    <TextBlock Text=" · "
+                                                               Foreground="{DynamicResource TextMutedBrush}"
+                                                               FontSize="11"/>
+                                                    <TextBlock Text="{Binding CreatedText}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="11"/>
+                                                    <TextBlock Text=" "/>
+                                                    <TextBlock Text="{Binding CopyCountText}"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               FontSize="11"/>
+                                                </StackPanel>
                                             </StackPanel>
-                                        </StackPanel>
-                                    </Grid>
 
-                                    <StackPanel Grid.Column="1"
-                                                Orientation="Horizontal"
-                                                HorizontalAlignment="Right"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,6,0">
-                                        <CheckBox Width="20"
-                                                  Height="20"
-                                                  Margin="0,0,6,0"
-                                                  VerticalAlignment="Center"
-                                                  HorizontalContentAlignment="Center"
-                                                  IsChecked="{Binding IsSelectedForDelete, Mode=TwoWay}"
-                                                  Tag="{Binding Id}"
-                                                  ToolTip="选择此记录"
-                                                  Checked="SelectionCheckBox_Changed"
-                                                  Unchecked="SelectionCheckBox_Changed" />
-                                        <Button Width="30"
+                                            <Grid x:Name="ImageLayout"
+                                                  Grid.Column="0"
+                                                  Visibility="Collapsed">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="72"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="62"
+                                                        Height="56"
+                                                        Margin="6"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1"
+                                                        Background="{DynamicResource SurfaceAltBrush}">
+                                                    <Image Source="{Binding ImagePreview}"
+                                                           Stretch="Uniform"
+                                                           SnapsToDevicePixels="True"
+                                                           ToolTip="右键查看大图"/>
+                                                </Border>
+                                                <StackPanel Grid.Column="1"
+                                                            Margin="6,10,4,6">
+                                                    <TextBlock Text="{Binding PreviewText}"
+                                                               FontSize="13"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextWrapping="NoWrap"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Height="20"/>
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Margin="0,4,0,0">
+                                                        <TextBlock Text="{Binding SourceApp}"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   FontSize="11"
+                                                                   MaxWidth="80"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text=" · "
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                                   FontSize="11"/>
+                                                        <TextBlock Text="{Binding CreatedText}"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   FontSize="11"/>
+                                                        <TextBlock Text=" "/>
+                                                        <TextBlock Text="{Binding CopyCountText}"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   FontSize="11"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Center"
+                                                        Margin="0,0,6,0">
+                                                <CheckBox Width="20"
+                                                          Height="20"
+                                                          Margin="0,0,6,0"
+                                                          VerticalAlignment="Center"
+                                                          HorizontalContentAlignment="Center"
+                                                          IsChecked="{Binding IsSelectedForDelete, Mode=TwoWay}"
+                                                          Tag="{Binding Id}"
+                                                          ToolTip="选择此记录"
+                                                          Checked="SelectionCheckBox_Changed"
+                                                          Unchecked="SelectionCheckBox_Changed"/>
+                                                <Button x:Name="FavoriteButton"
+                                                        Width="30"
+                                                        Height="28"
+                                                        Padding="0"
+                                                        Content="{Binding FavoriteGlyph}"
+                                                        FontFamily="Segoe UI Symbol"
+                                                        FontSize="14"
+                                                        Tag="{Binding Id}"
+                                                        ToolTip="收藏或取消收藏"
+                                                        Click="Favorite_Click"/>
+                                                <Button Width="30"
+                                                        Height="28"
+                                                        Padding="0"
+                                                        Margin="6,0,0,0"
+                                                        Content="×"
+                                                        FontFamily="Segoe UI Symbol"
+                                                        FontSize="16"
+                                                        Tag="{Binding Id}"
+                                                        ToolTip="删除"
+                                                        Click="Delete_Click"/>
+                                            </StackPanel>
+                                            <Border x:Name="FavoriteBottomLine"
+                                                    Grid.ColumnSpan="3"
+                                                    Height="3"
+                                                    Margin="-1,0,-1,-1"
+                                                    VerticalAlignment="Bottom"
+                                                    Panel.ZIndex="10"
+                                                    Background="{DynamicResource FavoriteBrush}"
+                                                    Visibility="Collapsed"/>
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsImage}"
+                                                     Value="True">
+                                            <Setter TargetName="TextLayout"
+                                                    Property="Visibility"
+                                                    Value="Collapsed"/>
+                                            <Setter TargetName="ImageLayout"
+                                                    Property="Visibility"
+                                                    Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsFavorite}"
+                                                     Value="True">
+                                            <Setter TargetName="FavoriteCardBorder"
+                                                    Property="BorderBrush"
+                                                    Value="{DynamicResource FavoriteBrush}"/>
+                                            <Setter TargetName="FavoriteButton"
+                                                    Property="Foreground"
+                                                    Value="{DynamicResource FavoriteBrush}"/>
+                                            <Setter TargetName="FavoriteButton"
+                                                    Property="BorderBrush"
+                                                    Value="{DynamicResource FavoriteBrush}"/>
+                                            <Setter TargetName="FavoriteBottomLine"
+                                                    Property="Visibility"
+                                                    Value="Visible"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </TabItem>
+                    <TabItem Header="收藏">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top"
+                                    Padding="8"
+                                    Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1,1,1,0">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="54"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="32"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="收藏夹"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                        <ComboBox x:Name="FavoriteFolderFilterBox"
+                                                  Grid.Column="1"
+                                                  Height="28"
+                                                  Margin="0,0,4,0"
+                                                  DisplayMemberPath="Name"
+                                                  SelectionChanged="FavoriteFolderFilter_SelectionChanged"/>
+                                        <Button x:Name="FavoriteFolderDeleteButton"
+                                                Grid.Column="2"
+                                                Width="28"
                                                 Height="28"
                                                 Padding="0"
-                                                Content="{Binding FavoriteGlyph}"
-                                                FontFamily="Segoe UI Symbol"
-                                                FontSize="14"
-                                                Tag="{Binding Id}"
-                                                ToolTip="收藏或取消收藏"
-                                                Click="Favorite_Click" />
-                                        <Button Width="30"
-                                                Height="28"
-                                                Padding="0"
-                                                Margin="6,0,0,0"
                                                 Content="×"
                                                 FontFamily="Segoe UI Symbol"
+                                                FontSize="15"
+                                                IsEnabled="False"
+                                                Foreground="{DynamicResource DangerBrush}"
+                                                BorderBrush="{DynamicResource DangerBrush}"
+                                                ToolTip="删除当前收藏夹"
+                                                Click="DeleteFavoriteFolder_Click"/>
+                                    </Grid>
+                                    <Grid Margin="0,7,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="82"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="32"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="新建收藏夹"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="12"/>
+                                        <TextBox x:Name="NewFavoriteFolderNameBox"
+                                                 Grid.Column="1"
+                                                 Height="28"
+                                                 MaxLength="40"
+                                                 Padding="7,4"
+                                                 ToolTip="输入新收藏夹名称"
+                                                 KeyDown="NewFavoriteFolderName_KeyDown"/>
+                                        <Button Grid.Column="2"
+                                                Width="28"
+                                                Height="28"
+                                                Margin="4,0,0,0"
+                                                Padding="0"
+                                                Content="+"
                                                 FontSize="16"
-                                                Tag="{Binding Id}"
-                                                ToolTip="删除"
-                                                Click="Delete_Click" />
-                                    </StackPanel>
-                                </Grid>
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding IsImage}" Value="True">
-                                        <Setter TargetName="TextLayout" Property="Visibility" Value="Collapsed" />
-                                        <Setter TargetName="ImageLayout" Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </TabItem>
-                <TabItem Header="收藏">
-                    <ListBox x:Name="FavoriteList"
-                             BorderBrush="{DynamicResource BorderBrush}"
-                             Background="{DynamicResource SurfaceBrush}"
-                             PreviewMouseLeftButtonDown="HistoryList_PreviewMouseLeftButtonDown"
-                             PreviewMouseRightButtonUp="HistoryList_PreviewMouseRightButtonUp"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ItemContainerStyle="{Binding ElementName=HistoryList, Path=ItemContainerStyle}"
-                             ItemTemplate="{Binding ElementName=HistoryList, Path=ItemTemplate}"
-                             VirtualizingPanel.IsVirtualizingWhenGrouping="True">
-                        <ListBox.GroupStyle>
-                            <GroupStyle ContainerStyle="{StaticResource TimeGroupContainerStyle}" />
-                        </ListBox.GroupStyle>
-                    </ListBox>
-                </TabItem>
-                <TabItem Header="设置">
-                    <Border BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1"
-                            Background="{DynamicResource SurfaceBrush}"
-                            Padding="14,12">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Margin="0,0,5,0">
-                            <TextBlock Text="外观"
-                                       FontSize="14"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <Grid Margin="0,9,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="150" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="明暗模式"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           VerticalAlignment="Center" />
-                                <ComboBox x:Name="ThemeModeBox"
-                                          Grid.Column="1"
-                                          Height="30"
-                                          SelectionChanged="Appearance_SelectionChanged">
-                                    <ComboBoxItem Content="跟随系统" Tag="System" />
-                                    <ComboBoxItem Content="浅色" Tag="Light" />
-                                    <ComboBoxItem Content="深色" Tag="Dark" />
-                                </ComboBox>
-                            </Grid>
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="150" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="界面风格"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           VerticalAlignment="Center" />
-                                <ComboBox x:Name="ThemePresetBox"
-                                          Grid.Column="1"
-                                          Height="30"
-                                          SelectionChanged="Appearance_SelectionChanged">
-                                    <ComboBoxItem Content="清爽标准" Tag="Standard" />
-                                    <ComboBoxItem Content="柔和玻璃" Tag="Glass" />
-                                </ComboBox>
-                            </Grid>
-                            <Grid x:Name="GlassOpacityPanel"
-                                  Margin="0,8,0,0"
-                                  Visibility="Collapsed">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="150" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="透明度"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           VerticalAlignment="Center" />
-                                <Grid Grid.Column="1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="40" />
-                                    </Grid.ColumnDefinitions>
-                                    <Slider x:Name="GlassOpacitySlider"
-                                            Minimum="55"
-                                            Maximum="95"
-                                            TickFrequency="5"
-                                            IsSnapToTickEnabled="True"
-                                            VerticalAlignment="Center"
-                                            Foreground="{DynamicResource AccentBrush}" />
-                                    <TextBlock x:Name="GlassOpacityText"
-                                               Grid.Column="1"
-                                               HorizontalAlignment="Right"
-                                               VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                                </Grid>
-                            </Grid>
-
-                            <Separator Margin="0,14,0,12" />
-
-                            <TextBlock Text="记录状态"
-                                       FontSize="14"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock x:Name="CaptureStatusText"
-                                       Margin="0,4,0,14"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="12"
-                                       TextWrapping="Wrap" />
-
-                            <UniformGrid Columns="2" Rows="2">
-                                <Button Content="暂停 5 分钟"
-                                        Height="34"
-                                        Margin="0,0,6,8"
-                                        Click="PauseFiveMinutes_Click" />
-                                <Button Content="暂停 30 分钟"
-                                        Height="34"
-                                        Margin="6,0,0,8"
-                                        Click="PauseThirtyMinutes_Click" />
-                                <Button Content="暂停直到恢复"
-                                        Height="34"
-                                        Margin="0,0,6,0"
-                                        Click="PauseUntilResume_Click" />
-                                <Button Content="恢复记录"
-                                        Height="34"
-                                        Margin="6,0,0,0"
-                                        Click="ResumeCapture_Click" />
-                            </UniformGrid>
-
-                            <Separator Margin="0,14,0,12" />
-
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="86" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="普通记录保留天数"
-                                               FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBlock Text="收藏项会一直保留。"
-                                               Margin="0,3,0,0"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                               FontSize="12" />
+                                                ToolTip="新建收藏夹"
+                                                Click="NewFavoriteFolder_Click"/>
+                                    </Grid>
+                                    <Grid Margin="0,7,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="82"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="56"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="移动所选到"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="12"/>
+                                        <ComboBox x:Name="FavoriteDestinationBox"
+                                                  Grid.Column="1"
+                                                  Height="28"
+                                                  Margin="0,0,6,0"
+                                                  DisplayMemberPath="Name"
+                                                  IsEnabled="False"
+                                                  SelectionChanged="FavoriteDestination_SelectionChanged"/>
+                                        <Button x:Name="FavoriteMoveConfirmButton"
+                                                Grid.Column="2"
+                                                Height="28"
+                                                Padding="8,0"
+                                                Content="确定"
+                                                IsEnabled="False"
+                                                Style="{StaticResource PrimaryButtonStyle}"
+                                                ToolTip="确认移动所选收藏"
+                                                Click="ConfirmFavoriteMove_Click"/>
+                                    </Grid>
+                                    <Grid Margin="0,7,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="82"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="收藏管理"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="12"/>
+                                        <Button x:Name="FavoriteRemoveButton"
+                                                Grid.Column="1"
+                                                Width="104"
+                                                Height="28"
+                                                HorizontalAlignment="Right"
+                                                Padding="8,0"
+                                                Content="移出收藏夹"
+                                                IsEnabled="False"
+                                                Foreground="{DynamicResource DangerBrush}"
+                                                BorderBrush="{DynamicResource DangerBrush}"
+                                                ToolTip="将所选内容移出收藏夹"
+                                                Click="RemoveFavorites_Click"/>
+                                    </Grid>
                                 </StackPanel>
-                                <TextBox x:Name="RetentionDaysBox"
-                                         Grid.Column="1"
-                                         Height="28"
-                                         Padding="8,3"
-                                         HorizontalContentAlignment="Right"
-                                         VerticalContentAlignment="Center" />
-                            </Grid>
+                            </Border>
+                            <ListBox x:Name="FavoriteList"
+                                     BorderBrush="{DynamicResource BorderBrush}"
+                                     Background="{DynamicResource SurfaceBrush}"
+                                     PreviewMouseLeftButtonDown="HistoryList_PreviewMouseLeftButtonDown"
+                                     PreviewMouseRightButtonUp="HistoryList_PreviewMouseRightButtonUp"
+                                     SelectionChanged="FavoriteList_SelectionChanged"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ItemContainerStyle="{Binding ElementName=HistoryList, Path=ItemContainerStyle}"
+                                     ItemTemplate="{Binding ElementName=HistoryList, Path=ItemTemplate}"
+                                     VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                                <ListBox.GroupStyle>
+                                    <GroupStyle ContainerStyle="{StaticResource TimeGroupContainerStyle}"/>
+                                </ListBox.GroupStyle>
+                            </ListBox>
+                        </DockPanel>
+                    </TabItem>
+                    <TabItem Header="设置">
+                        <Border BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                Background="{DynamicResource SurfaceBrush}"
+                                Padding="14,12">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel Margin="0,0,5,0">
+                                    <TextBlock Text="外观"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <Grid Margin="0,9,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="150"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="明暗模式"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ThemeModeBox"
+                                                  Grid.Column="1"
+                                                  Height="30"
+                                                  SelectionChanged="Appearance_SelectionChanged">
+                                            <ComboBoxItem Content="跟随系统"
+                                                          Tag="System"/>
+                                            <ComboBoxItem Content="浅色"
+                                                          Tag="Light"/>
+                                            <ComboBoxItem Content="深色"
+                                                          Tag="Dark"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="150"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="界面风格"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ThemePresetBox"
+                                                  Grid.Column="1"
+                                                  Height="30"
+                                                  SelectionChanged="Appearance_SelectionChanged">
+                                            <ComboBoxItem Content="清爽标准"
+                                                          Tag="Standard"/>
+                                            <ComboBoxItem Content="柔和玻璃"
+                                                          Tag="Glass"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid x:Name="GlassOpacityPanel"
+                                          Margin="0,8,0,0"
+                                          Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="150"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="透明度"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <Grid Grid.Column="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="40"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Slider x:Name="GlassOpacitySlider"
+                                                    Minimum="55"
+                                                    Maximum="95"
+                                                    TickFrequency="5"
+                                                    IsSnapToTickEnabled="True"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{DynamicResource AccentBrush}"/>
+                                            <TextBlock x:Name="GlassOpacityText"
+                                                       Grid.Column="1"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </Grid>
+                                    </Grid>
 
-                            <CheckBox x:Name="SaveImagesCheckBox"
-                                      Content="保存图片和截图到历史"
-                                      Margin="0,12,0,0"
-                                      FontWeight="SemiBold"
-                                      Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <Separator Margin="0,14,0,12"/>
 
-                            <TextBlock Text="应用黑名单"
-                                       Margin="0,14,0,0"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock Text="每行一个进程名或关键词。"
-                                       Margin="0,3,0,6"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="12" />
-                            <TextBox x:Name="BlockedAppsBox"
-                                     AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"
-                                     TextWrapping="NoWrap"
-                                     Padding="8"
-                                     FontFamily="Consolas"
-                                     FontSize="12"
-                                     MinHeight="86" />
+                                    <TextBlock Text="记录状态"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock x:Name="CaptureStatusText"
+                                               Margin="0,4,0,14"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"/>
 
-                            <Button Content="保存设置"
-                                    Height="32"
-                                    Margin="0,12,0,0"
-                                    HorizontalAlignment="Right"
-                                    Width="88"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Click="SaveSettings_Click" />
-                            <Button Content="恢复默认值"
-                                    Height="32"
-                                    Margin="8,8,0,0"
-                                    HorizontalAlignment="Right"
-                                    Width="100"
-                                    Click="ResetDefaults_Click" />
-                        </StackPanel>
-                        </ScrollViewer>
-                    </Border>
-                </TabItem>
-            </TabControl>
-        </DockPanel>
-    </Border>
+                                    <UniformGrid Columns="2"
+                                                 Rows="2">
+                                        <Button Content="暂停 5 分钟"
+                                                Height="34"
+                                                Margin="0,0,6,8"
+                                                Click="PauseFiveMinutes_Click"/>
+                                        <Button Content="暂停 30 分钟"
+                                                Height="34"
+                                                Margin="6,0,0,8"
+                                                Click="PauseThirtyMinutes_Click"/>
+                                        <Button Content="暂停直到恢复"
+                                                Height="34"
+                                                Margin="0,0,6,0"
+                                                Click="PauseUntilResume_Click"/>
+                                        <Button Content="恢复记录"
+                                                Height="34"
+                                                Margin="6,0,0,0"
+                                                Click="ResumeCapture_Click"/>
+                                    </UniformGrid>
+
+                                    <Separator Margin="0,14,0,12"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="86"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="普通记录保留天数"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="收藏项会一直保留。"
+                                                       Margin="0,3,0,0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="12"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="RetentionDaysBox"
+                                                 Grid.Column="1"
+                                                 Height="28"
+                                                 Padding="8,3"
+                                                 HorizontalContentAlignment="Right"
+                                                 VerticalContentAlignment="Center"/>
+                                    </Grid>
+
+                                    <CheckBox x:Name="SaveImagesCheckBox"
+                                              Content="保存图片和截图到历史"
+                                              Margin="0,12,0,0"
+                                              FontWeight="SemiBold"
+                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                                    <TextBlock Text="应用黑名单"
+                                               Margin="0,14,0,0"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="每行一个进程名或关键词。"
+                                               Margin="0,3,0,6"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="12"/>
+                                    <TextBox x:Name="BlockedAppsBox"
+                                             AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"
+                                             TextWrapping="NoWrap"
+                                             Padding="8"
+                                             FontFamily="Consolas"
+                                             FontSize="12"
+                                             MinHeight="86"/>
+
+                                    <Button Content="保存设置"
+                                            Height="32"
+                                            Margin="0,12,0,0"
+                                            HorizontalAlignment="Right"
+                                            Width="88"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            Click="SaveSettings_Click"/>
+                                    <Button Content="恢复默认值"
+                                            Height="32"
+                                            Margin="8,8,0,0"
+                                            HorizontalAlignment="Right"
+                                            Width="100"
+                                            Click="ResetDefaults_Click"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </TabItem>
+                </TabControl>
+            </DockPanel>
+        </Border>
+        <Grid x:Name="DialogOverlay"
+              Panel.ZIndex="20"
+              Visibility="Collapsed"
+              Background="#99000000">
+            <Border Width="316"
+                    MaxHeight="280"
+                    Padding="18,16"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="5">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="DialogTitleText"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="DialogMessageText"
+                               Grid.Row="1"
+                               Margin="0,10,0,16"
+                               FontSize="13"
+                               LineHeight="20"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <StackPanel Grid.Row="2"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <Button x:Name="DialogCancelButton"
+                                Width="72"
+                                Height="30"
+                                Margin="0,0,8,0"
+                                Content="取消"
+                                Click="DialogCancel_Click"/>
+                        <Button x:Name="DialogConfirmButton"
+                                Width="72"
+                                Height="30"
+                                Content="确定"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Click="DialogConfirm_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
 </Window>

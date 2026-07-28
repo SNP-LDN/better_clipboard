@@ -17,6 +17,7 @@ public sealed class ClipboardItem
     public DateTimeOffset LastCopiedAt { get; set; } = DateTimeOffset.Now;
     public DateTimeOffset? ExpiresAt { get; set; }
     public bool IsFavorite { get; set; }
+    public Guid? FavoriteFolderId { get; set; }
     public bool IsSensitive { get; set; }
     public string PrivacyLabel { get; set; } = "";
     public int CopyCount { get; set; } = 1;

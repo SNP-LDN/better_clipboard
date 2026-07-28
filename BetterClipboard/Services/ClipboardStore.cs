@@ -8,11 +8,13 @@ namespace BetterClipboard.Services;
 public sealed class ClipboardStore
 {
     private const int ThumbnailCacheCapacity = 24;
+    public static readonly Guid DefaultFavoriteFolderId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly AppPaths _paths;
     private readonly EncryptionService _encryption;
     private readonly DiagnosticLog _log;
     private readonly List<ClipboardItem> _items = [];
+    private readonly List<FavoriteFolder> _favoriteFolders = [];
     private readonly Dictionary<Guid, ThumbnailCacheEntry> _thumbnailCache = [];
     private readonly LinkedList<Guid> _thumbnailCacheOrder = [];
 
@@ -22,8 +24,10 @@ public sealed class ClipboardStore
         _encryption = encryption;
         _log = log;
         Load();
+        LoadFavoriteFolders();
         PopulateMissingContentLengths();
         MergeDuplicateItems();
+        EnsureFavoriteFolderAssignments();
         PruneExpired();
     }
 
@@ -31,6 +35,11 @@ public sealed class ClipboardStore
 
     public IReadOnlyList<ClipboardItem> Items => _items
         .OrderByDescending(item => item.LastCopiedAt)
+        .ToList();
+
+    public IReadOnlyList<FavoriteFolder> FavoriteFolders => _favoriteFolders
+        .OrderBy(folder => folder.Id == DefaultFavoriteFolderId ? 0 : 1)
+        .ThenBy(folder => folder.CreatedAt)
         .ToList();
 
     public void AddOrUpdate(
@@ -42,6 +51,7 @@ public sealed class ClipboardStore
         bool isSensitive,
         string privacyLabel)
     {
+        var copiedAt = DateTimeOffset.Now;
         var identity = ClipboardContentIdentity.Normalize(content, kind);
         var existing = _items.FirstOrDefault(item =>
             item.Kind == kind &&
@@ -49,18 +59,19 @@ public sealed class ClipboardStore
 
         if (existing is not null)
         {
-            existing.LastCopiedAt = DateTimeOffset.Now;
+            existing.LastCopiedAt = copiedAt;
             existing.CopyCount++;
             existing.SourceApp = source.ProcessName;
             existing.SourceTitle = source.WindowTitle;
             existing.ContentLength = content.Length;
+            MoveToTop(existing);
             _log.Info(
                 "Store",
                 $"Updated id={existing.Id}, count={existing.CopyCount}, kind={kind}, {DiagnosticLog.DescribeContent(content)}");
         }
         else
         {
-            _items.Add(new ClipboardItem
+            _items.Insert(0, new ClipboardItem
             {
                 Kind = kind,
                 PreviewText = preview,
@@ -68,6 +79,8 @@ public sealed class ClipboardStore
                 ContentLength = content.Length,
                 SourceApp = source.ProcessName,
                 SourceTitle = source.WindowTitle,
+                CreatedAt = copiedAt,
+                LastCopiedAt = copiedAt,
                 ExpiresAt = expiresAt,
                 IsSensitive = isSensitive,
                 PrivacyLabel = privacyLabel
@@ -85,16 +98,18 @@ public sealed class ClipboardStore
         SourceAppInfo source,
         DateTimeOffset expiresAt)
     {
+        var copiedAt = DateTimeOffset.Now;
         var existing = _items.FirstOrDefault(item =>
             item.Kind == ClipboardItemKind.Image &&
             string.Equals(item.ContentHash, image.Hash, StringComparison.Ordinal));
 
         if (existing is not null)
         {
-            existing.LastCopiedAt = DateTimeOffset.Now;
+            existing.LastCopiedAt = copiedAt;
             existing.CopyCount++;
             existing.SourceApp = source.ProcessName;
             existing.SourceTitle = source.WindowTitle;
+            MoveToTop(existing);
             _log.Info(
                 "Store",
                 $"Updated image id={existing.Id}, count={existing.CopyCount}, size={image.Width}x{image.Height}, hash={image.Hash[..12]}");
@@ -111,12 +126,14 @@ public sealed class ClipboardStore
                 ImageHeight = image.Height,
                 SourceApp = source.ProcessName,
                 SourceTitle = source.WindowTitle,
+                CreatedAt = copiedAt,
+                LastCopiedAt = copiedAt,
                 ExpiresAt = expiresAt
             };
 
             item.ImageFileName = $"{item.Id:N}.bin";
             File.WriteAllBytes(ImagePath(item), _encryption.ProtectBytes(image.Bytes));
-            _items.Add(item);
+            _items.Insert(0, item);
             _log.Info(
                 "Store",
                 $"Added image id={item.Id}, source={source.ProcessName}, size={image.Width}x{image.Height}, " +
@@ -187,7 +204,103 @@ public sealed class ClipboardStore
 
         item.IsFavorite = !item.IsFavorite;
         item.ExpiresAt = item.IsFavorite ? null : DateTimeOffset.Now.AddDays(20);
+        item.FavoriteFolderId = item.IsFavorite ? DefaultFavoriteFolderId : null;
         Save();
+    }
+
+    public FavoriteFolder? CreateFavoriteFolder(string name)
+    {
+        var normalizedName = name.Trim();
+        if (normalizedName.Length is < 1 or > 40 ||
+            _favoriteFolders.Any(folder => string.Equals(
+                folder.Name,
+                normalizedName,
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            return null;
+        }
+
+        var folder = new FavoriteFolder { Name = normalizedName };
+        _favoriteFolders.Add(folder);
+        SaveFavoriteFolders();
+        Changed?.Invoke(this, EventArgs.Empty);
+        return folder;
+    }
+
+    public int? DeleteFavoriteFolder(Guid folderId)
+    {
+        if (folderId == DefaultFavoriteFolderId)
+        {
+            return null;
+        }
+
+        var folder = _favoriteFolders.FirstOrDefault(candidate => candidate.Id == folderId);
+        if (folder is null)
+        {
+            return null;
+        }
+
+        var itemsToMove = _items
+            .Where(item => item.IsFavorite && item.FavoriteFolderId == folderId)
+            .ToList();
+        foreach (var item in itemsToMove)
+        {
+            item.FavoriteFolderId = DefaultFavoriteFolderId;
+        }
+
+        _favoriteFolders.Remove(folder);
+        SaveFavoriteFolders();
+        Save();
+        return itemsToMove.Count;
+    }
+
+    public int AddOrMoveFavoritesToFolder(IEnumerable<Guid> itemIds, Guid folderId)
+    {
+        if (_favoriteFolders.All(folder => folder.Id != folderId))
+        {
+            return 0;
+        }
+
+        var selectedIds = itemIds.ToHashSet();
+        var itemsToUpdate = _items
+            .Where(item =>
+                selectedIds.Contains(item.Id) &&
+                (!item.IsFavorite || item.FavoriteFolderId != folderId))
+            .ToList();
+        foreach (var item in itemsToUpdate)
+        {
+            item.IsFavorite = true;
+            item.ExpiresAt = null;
+            item.FavoriteFolderId = folderId;
+        }
+
+        if (itemsToUpdate.Count > 0)
+        {
+            Save();
+        }
+
+        return itemsToUpdate.Count;
+    }
+
+    public int RemoveFavorites(IEnumerable<Guid> itemIds)
+    {
+        var selectedIds = itemIds.ToHashSet();
+        var itemsToUpdate = _items
+            .Where(item => item.IsFavorite && selectedIds.Contains(item.Id))
+            .ToList();
+        foreach (var item in itemsToUpdate)
+        {
+            item.IsFavorite = false;
+            item.FavoriteFolderId = null;
+            item.ExpiresAt = DateTimeOffset.Now.AddDays(20);
+        }
+
+        if (itemsToUpdate.Count > 0)
+        {
+            Save();
+        }
+
+        return itemsToUpdate.Count;
     }
 
     public void Delete(Guid id)
@@ -332,6 +445,17 @@ public sealed class ClipboardStore
         _thumbnailCacheOrder.Remove(cached.Node);
     }
 
+    private void MoveToTop(ClipboardItem item)
+    {
+        if (_items.Count <= 1 || ReferenceEquals(_items[0], item))
+        {
+            return;
+        }
+
+        _items.Remove(item);
+        _items.Insert(0, item);
+    }
+
     private void Load()
     {
         if (!File.Exists(_paths.StoreFile))
@@ -354,6 +478,75 @@ public sealed class ClipboardStore
         }
     }
 
+    private void LoadFavoriteFolders()
+    {
+        try
+        {
+            if (File.Exists(_paths.FavoriteFoldersFile))
+            {
+                var json = File.ReadAllText(_paths.FavoriteFoldersFile);
+                var loaded = JsonSerializer.Deserialize<List<FavoriteFolder>>(json) ?? [];
+                _favoriteFolders.AddRange(loaded.Where(folder =>
+                    folder.Id != Guid.Empty &&
+                    !string.IsNullOrWhiteSpace(folder.Name)));
+            }
+        }
+        catch (Exception exception)
+        {
+            _favoriteFolders.Clear();
+            _log.Error("Store", "Failed to load favorite folders", exception);
+        }
+
+        var defaultFolder = _favoriteFolders.FirstOrDefault(folder => folder.Id == DefaultFavoriteFolderId);
+        if (defaultFolder is null)
+        {
+            _favoriteFolders.Insert(0, new FavoriteFolder
+            {
+                Id = DefaultFavoriteFolderId,
+                Name = "基础收藏夹",
+                CreatedAt = DateTimeOffset.MinValue
+            });
+        }
+        else
+        {
+            defaultFolder.Name = "基础收藏夹";
+        }
+
+        var uniqueFolders = _favoriteFolders
+            .GroupBy(folder => folder.Id)
+            .Select(group => group.First())
+            .ToList();
+        _favoriteFolders.Clear();
+        _favoriteFolders.AddRange(uniqueFolders);
+        SaveFavoriteFolders();
+    }
+
+    private void EnsureFavoriteFolderAssignments()
+    {
+        var folderIds = _favoriteFolders.Select(folder => folder.Id).ToHashSet();
+        var changed = false;
+        foreach (var item in _items)
+        {
+            Guid? expectedFolderId = item.IsFavorite
+                ? item.FavoriteFolderId is { } folderId && folderIds.Contains(folderId)
+                    ? folderId
+                    : DefaultFavoriteFolderId
+                : null;
+
+            if (item.FavoriteFolderId != expectedFolderId)
+            {
+                item.FavoriteFolderId = expectedFolderId;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _log.Info("Store", "Assigned existing favorites to favorite folders");
+            Save();
+        }
+    }
+
     private void MergeDuplicateItems()
     {
         var duplicatesRemoved = 0;
@@ -371,6 +564,10 @@ public sealed class ClipboardStore
             keeper.LastCopiedAt = ordered.Max(item => item.LastCopiedAt);
             keeper.CopyCount = ordered.Max(item => item.CopyCount);
             keeper.IsFavorite = ordered.Any(item => item.IsFavorite);
+            keeper.FavoriteFolderId = ordered
+                .Where(item => item.IsFavorite && item.FavoriteFolderId is not null)
+                .Select(item => item.FavoriteFolderId)
+                .FirstOrDefault();
             keeper.ExpiresAt = keeper.IsFavorite ? null : ordered.Max(item => item.ExpiresAt);
 
             foreach (var duplicate in ordered.Skip(1))
@@ -408,6 +605,12 @@ public sealed class ClipboardStore
         var json = JsonSerializer.Serialize(_items, JsonOptions);
         File.WriteAllText(_paths.StoreFile, json);
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void SaveFavoriteFolders()
+    {
+        var json = JsonSerializer.Serialize(_favoriteFolders, JsonOptions);
+        File.WriteAllText(_paths.FavoriteFoldersFile, json);
     }
 
     private sealed record ThumbnailCacheEntry(BitmapSource Image, LinkedListNode<Guid> Node);

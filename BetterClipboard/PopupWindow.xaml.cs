@@ -27,7 +27,12 @@ public partial class PopupWindow : Window
     private readonly DispatcherTimer _memoryUsageTimer;
     private readonly Process _currentProcess;
     private string? _settingsStatusMessage;
+    private Guid? _favoriteFolderFilterId;
+    private Action? _dialogConfirmAction;
     private bool _isLoadingSettings;
+    private bool _isRefreshingFavoriteFolderControls;
+    private bool _isDialogOpen;
+    private bool _isPinned;
     private bool _closeRequested;
 
     public PopupWindow(
@@ -129,18 +134,20 @@ public partial class PopupWindow : Window
                 string.IsNullOrWhiteSpace(query) ||
                 item.PreviewText.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 item.SourceApp.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .Select(item => new ClipboardListItem(
-                item,
-                item.Kind == Models.ClipboardItemKind.Image
-                    ? () => _store.GetImagePreview(item.Id)
-                    : null,
-                _selectedItemIds.Contains(item.Id)))
             .ToList();
 
-        ReplaceItems(_items, filtered);
-        ReplaceItems(_favoriteItems, filtered.Where(item => item.IsFavorite));
+        ReplaceItems(_items, filtered.Select(CreateListItem));
+        ReplaceItems(
+            _favoriteItems,
+            filtered
+                .Where(item =>
+                    item.IsFavorite &&
+                    (_favoriteFolderFilterId is null || item.FavoriteFolderId == _favoriteFolderFilterId))
+                .Select(CreateListItem));
+        RefreshFavoriteFolderControls();
         RestoreSelection(HistoryList, _items, selectedHistoryId);
         RestoreSelection(FavoriteList, _favoriteItems, selectedFavoriteId);
+        RefreshFavoriteDestinationSelection();
 
         RefreshCaptureStatus();
         UpdateDeleteSelectedButton();
@@ -152,9 +159,139 @@ public partial class PopupWindow : Window
         }
 
         var activeCount = IsFavoritesTabActive() ? _favoriteItems.Count : _items.Count;
-        StatusText.Text = activeCount == 0
+        StatusText.Text = IsFavoritesTabActive() && _selectedItemIds.Count > 0
+            ? $"已选择 {_selectedItemIds.Count} 条内容；可加入目标收藏夹或移出收藏。"
+            : activeCount == 0
             ? "没有匹配内容"
-            : "双击或按 Enter 粘贴；星标后永久保留。";
+            : IsFavoritesTabActive()
+                ? "选择收藏后，可将它移动到其他收藏夹。"
+                : "双击或按 Enter 粘贴；星标后永久保留。";
+    }
+
+    private ClipboardListItem CreateListItem(ClipboardItem item)
+    {
+        return new ClipboardListItem(
+            item,
+            item.Kind == ClipboardItemKind.Image
+                ? () => _store.GetImagePreview(item.Id)
+                : null,
+            _selectedItemIds.Contains(item.Id));
+    }
+
+    private void RefreshFavoriteFolderControls()
+    {
+        if (FavoriteFolderFilterBox is null ||
+            FavoriteDestinationBox is null ||
+            FavoriteFolderDeleteButton is null)
+        {
+            return;
+        }
+
+        var folders = _store.FavoriteFolders
+            .Select(folder => new FavoriteFolderChoice(folder.Id, folder.Name))
+            .ToList();
+        if (_favoriteFolderFilterId is not null &&
+            folders.All(folder => folder.Id != _favoriteFolderFilterId))
+        {
+            _favoriteFolderFilterId = null;
+        }
+
+        var filters = new List<FavoriteFolderChoice>
+        {
+            new(null, "全部收藏夹")
+        };
+        filters.AddRange(folders);
+
+        _isRefreshingFavoriteFolderControls = true;
+        try
+        {
+            FavoriteFolderFilterBox.ItemsSource = filters;
+            FavoriteFolderFilterBox.SelectedItem = filters.First(folder => folder.Id == _favoriteFolderFilterId);
+            FavoriteDestinationBox.ItemsSource = folders;
+            FavoriteFolderDeleteButton.IsEnabled = _favoriteFolderFilterId is { } folderId &&
+                                                     folderId != ClipboardStore.DefaultFavoriteFolderId;
+        }
+        finally
+        {
+            _isRefreshingFavoriteFolderControls = false;
+        }
+    }
+
+    private void RefreshFavoriteDestinationSelection()
+    {
+        if (FavoriteDestinationBox is null ||
+            FavoriteMoveConfirmButton is null ||
+            FavoriteRemoveButton is null)
+        {
+            return;
+        }
+
+        var selectedItem = FavoriteList.SelectedItem as ClipboardListItem;
+        _isRefreshingFavoriteFolderControls = true;
+        try
+        {
+            var destinationFolderId = selectedItem?.FavoriteFolderId ?? ClipboardStore.DefaultFavoriteFolderId;
+            FavoriteDestinationBox.SelectedItem = FavoriteDestinationBox.Items
+                    .OfType<FavoriteFolderChoice>()
+                    .FirstOrDefault(folder => folder.Id == destinationFolderId);
+        }
+        finally
+        {
+            _isRefreshingFavoriteFolderControls = false;
+        }
+
+        UpdateFavoriteMoveConfirmButton();
+    }
+
+    private void UpdateFavoriteMoveConfirmButton()
+    {
+        if (FavoriteMoveConfirmButton is null)
+        {
+            return;
+        }
+
+        var candidateIds = GetFavoriteMoveCandidateIds();
+        var destinationId = (FavoriteDestinationBox.SelectedItem as FavoriteFolderChoice)?.Id;
+        FavoriteDestinationBox.IsEnabled = candidateIds.Count > 0;
+        FavoriteMoveConfirmButton.IsEnabled = destinationId is not null && candidateIds.Count > 0;
+        FavoriteRemoveButton.IsEnabled = GetFavoriteRemovalCandidateIds().Count > 0;
+    }
+
+    private List<Guid> GetFavoriteMoveCandidateIds()
+    {
+        var storedIds = _store.Items
+            .Select(item => item.Id)
+            .ToHashSet();
+        var checkedIds = _selectedItemIds
+            .Where(storedIds.Contains)
+            .ToList();
+        if (checkedIds.Count > 0)
+        {
+            return checkedIds;
+        }
+
+        return FavoriteList.SelectedItem is ClipboardListItem item
+            ? [item.Id]
+            : [];
+    }
+
+    private List<Guid> GetFavoriteRemovalCandidateIds()
+    {
+        var favoriteIds = _store.Items
+            .Where(item => item.IsFavorite)
+            .Select(item => item.Id)
+            .ToHashSet();
+        var checkedFavoriteIds = _selectedItemIds
+            .Where(favoriteIds.Contains)
+            .ToList();
+        if (checkedFavoriteIds.Count > 0)
+        {
+            return checkedFavoriteIds;
+        }
+
+        return FavoriteList.SelectedItem is ClipboardListItem item
+            ? [item.Id]
+            : [];
     }
 
     public void ShowNearCursor()
@@ -229,6 +366,187 @@ public partial class PopupWindow : Window
         }
     }
 
+    private void FavoriteFolderFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshingFavoriteFolderControls ||
+            FavoriteFolderFilterBox.SelectedItem is not FavoriteFolderChoice folder)
+        {
+            return;
+        }
+
+        _favoriteFolderFilterId = folder.Id;
+        Refresh();
+        e.Handled = true;
+    }
+
+    private void DeleteFavoriteFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (FavoriteFolderFilterBox.SelectedItem is not FavoriteFolderChoice { Id: { } folderId } folder ||
+            folderId == ClipboardStore.DefaultFavoriteFolderId)
+        {
+            return;
+        }
+
+        var itemCount = _store.Items.Count(item => item.IsFavorite && item.FavoriteFolderId == folderId);
+        var message = itemCount == 0
+            ? $"确定删除收藏夹“{folder.Name}”吗？"
+            : $"确定删除收藏夹“{folder.Name}”吗？其中 {itemCount} 条收藏将移动到“基础收藏夹”。";
+        ShowInAppDialog(
+            "删除收藏夹",
+            message,
+            "删除",
+            () =>
+            {
+                _favoriteFolderFilterId = ClipboardStore.DefaultFavoriteFolderId;
+                var movedCount = _store.DeleteFavoriteFolder(folderId);
+                _selectedItemIds.Clear();
+                Refresh();
+                StatusText.Text = movedCount is null
+                    ? "收藏夹未删除。"
+                    : movedCount == 0
+                        ? $"已删除收藏夹“{folder.Name}”。"
+                        : $"已删除收藏夹“{folder.Name}”，并将 {movedCount} 条收藏移动到“基础收藏夹”。";
+            });
+        e.Handled = true;
+    }
+
+    private void FavoriteList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        RefreshFavoriteDestinationSelection();
+    }
+
+    private void FavoriteDestination_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshingFavoriteFolderControls)
+        {
+            return;
+        }
+
+        UpdateFavoriteMoveConfirmButton();
+        e.Handled = true;
+    }
+
+    private void ConfirmFavoriteMove_Click(object sender, RoutedEventArgs e)
+    {
+        if (FavoriteDestinationBox.SelectedItem is not FavoriteFolderChoice { Id: { } folderId } folder)
+        {
+            StatusText.Text = "请先选择目标收藏夹。";
+            return;
+        }
+
+        var candidateIds = GetFavoriteMoveCandidateIds();
+        if (candidateIds.Count == 0)
+        {
+            StatusText.Text = "请先选择要移动的收藏内容。";
+            return;
+        }
+
+        var movedCount = _store.AddOrMoveFavoritesToFolder(candidateIds, folderId);
+        _selectedItemIds.Clear();
+        Refresh();
+        StatusText.Text = movedCount == 0
+            ? "所选内容已经在这个收藏夹中。"
+            : $"已将 {movedCount} 条内容加入“{folder.Name}”。";
+        e.Handled = true;
+    }
+
+    private void RemoveFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        var candidateIds = GetFavoriteRemovalCandidateIds();
+        if (candidateIds.Count == 0)
+        {
+            StatusText.Text = "请先选择要移出的收藏内容。";
+            return;
+        }
+
+        var removedCount = _store.RemoveFavorites(candidateIds);
+        _selectedItemIds.Clear();
+        Refresh();
+        StatusText.Text = removedCount == 0
+            ? "没有可移出的收藏内容。"
+            : $"已将 {removedCount} 条内容移出收藏夹。";
+        e.Handled = true;
+    }
+
+    private void NewFavoriteFolder_Click(object sender, RoutedEventArgs e)
+    {
+        CreateFavoriteFolder();
+        e.Handled = true;
+    }
+
+    private void NewFavoriteFolderName_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        CreateFavoriteFolder();
+        e.Handled = true;
+    }
+
+    private void CreateFavoriteFolder()
+    {
+        var name = NewFavoriteFolderNameBox.Text.Trim();
+        if (name.Length is < 1 or > 40)
+        {
+            StatusText.Text = "收藏夹名称需要 1 到 40 个字符。";
+            NewFavoriteFolderNameBox.Focus();
+            return;
+        }
+
+        var folder = _store.CreateFavoriteFolder(name);
+        if (folder is null)
+        {
+            StatusText.Text = "已存在同名收藏夹。";
+            NewFavoriteFolderNameBox.Focus();
+            NewFavoriteFolderNameBox.SelectAll();
+            return;
+        }
+
+        NewFavoriteFolderNameBox.Clear();
+        Refresh();
+        StatusText.Text = $"已新建收藏夹“{folder.Name}”。";
+    }
+
+    private void ShowInAppDialog(
+        string title,
+        string message,
+        string confirmText,
+        Action confirmAction,
+        bool showCancel = true)
+    {
+        _dialogConfirmAction = confirmAction;
+        _isDialogOpen = true;
+        DialogTitleText.Text = title;
+        DialogMessageText.Text = message;
+        DialogConfirmButton.Content = confirmText;
+        DialogCancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
+        DialogOverlay.Visibility = Visibility.Visible;
+        DialogConfirmButton.Focus();
+    }
+
+    private void CloseInAppDialog()
+    {
+        DialogOverlay.Visibility = Visibility.Collapsed;
+        _isDialogOpen = false;
+        _dialogConfirmAction = null;
+    }
+
+    private void DialogConfirm_Click(object sender, RoutedEventArgs e)
+    {
+        var confirmAction = _dialogConfirmAction;
+        CloseInAppDialog();
+        confirmAction?.Invoke();
+        e.Handled = true;
+    }
+
+    private void DialogCancel_Click(object sender, RoutedEventArgs e)
+    {
+        CloseInAppDialog();
+        e.Handled = true;
+    }
+
     private async void HistoryList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount != 2 || sender is not System.Windows.Controls.ListBox list)
@@ -250,7 +568,7 @@ public partial class PopupWindow : Window
         }
 
         _log.Info("Popup", $"Double-click selected id={item.Id}");
-        RequestClose();
+        RequestAutoClose();
         e.Handled = true;
         await RunPasteCallback(item.Id, "double-click");
     }
@@ -277,12 +595,29 @@ public partial class PopupWindow : Window
 
         _log.Info("Popup", $"Opening large image preview; id={item.Id}");
         e.Handled = true;
-        RequestClose();
+        RequestAutoClose();
         new ImagePreviewWindow(image).Show();
     }
 
     private async void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (_isDialogOpen)
+        {
+            if (e.Key == Key.Escape)
+            {
+                CloseInAppDialog();
+            }
+            else if (e.Key == Key.Enter)
+            {
+                var confirmAction = _dialogConfirmAction;
+                CloseInAppDialog();
+                confirmAction?.Invoke();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
             RequestClose();
@@ -313,7 +648,7 @@ public partial class PopupWindow : Window
         }
 
         _log.Info("Popup", $"Enter selected id={item.Id}");
-        RequestClose();
+        RequestAutoClose();
         await RunPasteCallback(item.Id, "enter");
     }
 
@@ -449,14 +784,17 @@ public partial class PopupWindow : Window
             retentionDays < 1 ||
             retentionDays > 3650)
         {
-            System.Windows.MessageBox.Show(
-                this,
-                "保留天数请输入 1 到 3650 之间的整数。",
+            ShowInAppDialog(
                 "设置未保存",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            RetentionDaysBox.Focus();
-            RetentionDaysBox.SelectAll();
+                "保留天数请输入 1 到 3650 之间的整数。",
+                "知道了",
+                () =>
+                {
+                    RetentionDaysBox.Focus();
+                    RetentionDaysBox.SelectAll();
+                },
+                showCancel: false);
+            e.Handled = true;
             return;
         }
 
@@ -476,23 +814,19 @@ public partial class PopupWindow : Window
 
     private void ResetDefaults_Click(object sender, RoutedEventArgs e)
     {
-        var result = System.Windows.MessageBox.Show(
-            this,
-            "恢复默认值会覆盖当前保留天数、图片保存开关、应用黑名单，并恢复剪贴板记录。是否继续？",
+        ShowInAppDialog(
             "恢复默认值",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        _settings.ResetToDefaults();
-        ThemeManager.Apply(_settings.Settings);
-        LoadSettingsInputs();
-        _settingsStatusMessage = "已恢复默认值。";
-        RefreshCaptureStatus();
-        StatusText.Text = _settingsStatusMessage;
+            "恢复默认值会覆盖当前保留天数、图片保存开关、应用黑名单，并恢复剪贴板记录。是否继续？",
+            "恢复",
+            () =>
+            {
+                _settings.ResetToDefaults();
+                ThemeManager.Apply(_settings.Settings);
+                LoadSettingsInputs();
+                _settingsStatusMessage = "已恢复默认值。";
+                RefreshCaptureStatus();
+                StatusText.Text = _settingsStatusMessage;
+            });
         e.Handled = true;
     }
 
@@ -590,6 +924,7 @@ public partial class PopupWindow : Window
         }
 
         UpdateDeleteSelectedButton();
+        UpdateFavoriteMoveConfirmButton();
         e.Handled = true;
     }
 
@@ -600,22 +935,19 @@ public partial class PopupWindow : Window
             return;
         }
 
-        var count = _selectedItemIds.Count;
-        var result = System.Windows.MessageBox.Show(
-            this,
-            $"确定删除选中的 {count} 条记录吗？此操作无法撤销。",
+        var selectedIds = _selectedItemIds.ToArray();
+        var count = selectedIds.Length;
+        ShowInAppDialog(
             "删除所选记录",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-        if (result != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        var removedCount = _store.DeleteMany(_selectedItemIds);
-        _selectedItemIds.Clear();
-        Refresh();
-        StatusText.Text = $"已删除 {removedCount} 条记录。";
+            $"确定删除选中的 {count} 条记录吗？此操作无法撤销。",
+            "删除",
+            () =>
+            {
+                var removedCount = _store.DeleteMany(selectedIds);
+                _selectedItemIds.Clear();
+                Refresh();
+                StatusText.Text = $"已删除 {removedCount} 条记录。";
+            });
         e.Handled = true;
     }
 
@@ -641,6 +973,19 @@ public partial class PopupWindow : Window
         RequestClose();
     }
 
+    private void Pin_Click(object sender, RoutedEventArgs e)
+    {
+        _isPinned = !_isPinned;
+        PinIcon.SetResourceReference(
+            System.Windows.Shapes.Shape.FillProperty,
+            _isPinned ? "FavoriteBrush" : "TitleBarTextBrush");
+        PinButton.ToolTip = _isPinned ? "取消固定窗口" : "固定窗口";
+        StatusText.Text = _isPinned
+            ? "窗口已固定，将保持在最上层。"
+            : "窗口已取消固定。";
+        e.Handled = true;
+    }
+
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.LeftButton == MouseButtonState.Pressed)
@@ -654,7 +999,20 @@ public partial class PopupWindow : Window
         _log.Info(
             "Popup",
             $"Deactivated; foreground=0x{NativeMethods.GetForegroundWindow().ToInt64():X}");
+        if (_isDialogOpen || _isPinned)
+        {
+            return;
+        }
+
         RequestClose();
+    }
+
+    private void RequestAutoClose()
+    {
+        if (!_isPinned)
+        {
+            RequestClose();
+        }
     }
 
     private void RequestClose()
@@ -666,5 +1024,10 @@ public partial class PopupWindow : Window
 
         _closeRequested = true;
         Close();
+    }
+
+    private sealed record FavoriteFolderChoice(Guid? Id, string Name)
+    {
+        public override string ToString() => Name;
     }
 }

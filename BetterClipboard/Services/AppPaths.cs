@@ -17,6 +17,7 @@ public sealed class AppPaths
 
     public string Root { get; }
     public string StoreFile => Path.Combine(Root, "clips.json");
+    public string FavoriteFoldersFile => Path.Combine(Root, "favorite-folders.json");
     public string SettingsFile => Path.Combine(Root, "settings.json");
     public string InstallNoticeFile => Path.Combine(Root, "install-notice-version.txt");
     public string LogDirectory => Path.Combine(Root, "logs");

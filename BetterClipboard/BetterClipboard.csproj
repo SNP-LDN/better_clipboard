@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <StartupObject>BetterClipboard.App</StartupObject>
     <ApplicationIcon>Assets\Brand\better-clipboard.ico</ApplicationIcon>
-    <VersionPrefix>1.0.4</VersionPrefix>
+    <VersionPrefix>1.0.7</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +20,7 @@
     <Resource Include="Assets\Brand\better-clipboard-app-icon.png" />
     <Resource Include="Assets\Brand\better-clipboard-logo.png" />
     <Resource Include="Assets\Brand\better-clipboard.ico" />
+    <Resource Include="Assets\Brand\thumbtacks.png" />
   </ItemGroup>
 
   <ItemGroup>
