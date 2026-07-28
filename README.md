@@ -2,6 +2,8 @@
 
 **Language:** [English](#english) | [中文](#中文)
 
+**Current version:** 1.0.8
+
 ## English
 
 Better Clipboard is a Windows clipboard history app built with WPF. It runs quietly from the system tray, records useful clipboard changes, and lets you reopen recent clips with `Ctrl+Alt+V`.
@@ -20,10 +22,16 @@ The app is designed for day-to-day copying across text, file paths, and images, 
 - Shows image thumbnails in history and opens a larger image preview with right-click.
 - Tracks source application, copy count, copied time, content size, and item type.
 - Lets you favorite clips so they are kept permanently until deleted.
-- Lets you delete individual clips or clear all non-favorite clips.
+- Supports custom favorite folders, batch moving, and batch removal from favorites.
+- Lets you delete individual or selected clips, or clear all non-favorite clips.
 - Supports pausing capture for 5 minutes, 30 minutes, or until manual resume.
 - Provides settings for retention days, image capture, blocked applications, theme mode, and visual preset.
 - Supports light, dark, system theme, standard style, and glass style.
+- Includes a title-bar pin mode that keeps the history window open and on top.
+- Checks GitHub Releases for updates and installs verified packages automatically.
+- Lets users choose where update packages are downloaded and shows live progress, transferred size, and download speed.
+- Uses parallel segmented downloads when supported, with resumable fallback downloads.
+- Prevents duplicate background instances from competing for clipboard listeners or update locks.
 - Writes diagnostic logs for troubleshooting.
 
 ### Privacy And Security
@@ -64,7 +72,8 @@ Important files and folders:
 ### Requirements
 
 - Windows
-- .NET 9 SDK
+- Installed release: no separate .NET installation is required.
+- Building from source: .NET 9 SDK.
 
 ### Run From Source
 
@@ -99,15 +108,13 @@ BetterClipboard/
 
 ### Roadmap Ideas
 
-- Add finer-grained privacy policy settings.
-- Add image storage quotas and automatic cleanup rules.
-- Add a startup-at-login option.
-- Add highlighted search results, source-app filters, and batch deletion.
-- Add installer or single-file release packaging.
+- Rewrite core functionality in Rust.
 
 ---
 
 ## 中文
+
+**当前版本：** 1.0.8
 
 Better Clipboard 是一个基于 WPF 的 Windows 剪贴板历史工具。它会安静地驻留在系统托盘中，记录有用的剪贴板变化，并支持用 `Ctrl+Alt+V` 快速打开历史窗口。
 
@@ -125,10 +132,16 @@ Better Clipboard 是一个基于 WPF 的 Windows 剪贴板历史工具。它会�
 - 图片历史会显示缩略图，右键图片条目可以打开大图预览。
 - 显示来源应用、复制次数、复制时间、内容大小和条目类型。
 - 支持星标收藏，收藏内容会永久保留，直到用户手动删除。
-- 支持删除单条记录，或清空所有未收藏记录。
+- 支持自定义收藏夹、批量移动收藏内容，以及批量移出收藏夹。
+- 支持删除单条或批量删除所选记录，也可以清空所有未收藏记录。
 - 支持暂停记录 5 分钟、30 分钟，或暂停到手动恢复。
 - 设置中可调整保留天数、图片保存开关、应用黑名单、主题模式和界面风格。
 - 支持浅色、深色、跟随系统主题，以及标准和玻璃两种界面风格。
+- 标题栏支持图钉固定模式，使历史窗口保持置顶且不会自动关闭。
+- 支持通过 GitHub Releases 检查更新，校验更新包后自动安装并重启。
+- 下载更新时可自行选择保存路径，并显示实时进度、已下载大小和下载速度。
+- 更新包支持多路分段下载；不支持分段时会自动回退，并支持断点续传。
+- 限制为单后台实例，避免重复监听剪贴板或争抢更新锁。
 - 提供诊断日志，方便排查问题。
 
 ### 隐私与安全
@@ -169,7 +182,8 @@ Better Clipboard 是一个基于 WPF 的 Windows 剪贴板历史工具。它会�
 ### 运行要求
 
 - Windows
-- .NET 9 SDK
+- 安装正式版：无需另外安装 .NET。
+- 从源码构建：需要 .NET 9 SDK。
 
 ### 从源码运行
 
@@ -204,8 +218,4 @@ BetterClipboard/
 
 ### 后续建议
 
-- 增加更细粒度的敏感内容策略设置。
-- 增加图片总容量限制和自动清理策略。
-- 增加开机自动启动选项。
-- 增加搜索高亮、按来源应用过滤和批量删除。
-- 增加安装包或单文件发布。
+- Rust重构核心功能

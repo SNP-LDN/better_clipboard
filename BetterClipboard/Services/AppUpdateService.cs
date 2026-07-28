@@ -1,8 +1,11 @@
+using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Windows;
+using Microsoft.Win32;
 using Velopack;
 using Velopack.Exceptions;
 using Velopack.Sources;
@@ -46,7 +49,8 @@ public sealed class AppUpdateService
 
         try
         {
-            var source = new GithubSource(RepositoryUrl, accessToken: null, prerelease: false);
+            var downloader = new AcceleratedFileDownloader();
+            var source = new GithubSource(RepositoryUrl, null, false, downloader);
             var manager = new UpdateManager(source);
 
             if (!manager.IsInstalled)
@@ -80,28 +84,66 @@ public sealed class AppUpdateService
             _log.Info("Update", $"Update available; target={targetVersion}");
             var choice = ShowQuestion(
                 owner,
-                $"发现新版本 v{targetVersion}，是否立即下载并安装？\n\n安装完成后软件会自动重启。");
+                $"发现新版本 v{targetVersion}，是否立即下载并安装？\n\n" +
+                "下一步可选择下载位置，安装完成后软件会自动重启。");
             if (choice != MessageBoxResult.Yes)
             {
                 _log.Info("Update", $"Update postponed; target={targetVersion}");
                 return;
             }
 
-            var progressWindow = new UpdateProgressWindow(targetVersion);
+            var downloadDirectory = SelectDownloadDirectory(owner);
+            if (string.IsNullOrWhiteSpace(downloadDirectory))
+            {
+                _log.Info("Update", $"Update download location selection cancelled; target={targetVersion}");
+                return;
+            }
+
+            downloader.DownloadDirectory = downloadDirectory;
+            _log.Info(
+                "Update",
+                $"Update download directory selected; target={targetVersion}, directory={downloadDirectory}");
+
+            var progressWindow = new UpdateProgressWindow(targetVersion, downloadDirectory);
             if (owner is not null && owner.IsVisible)
             {
                 progressWindow.Owner = owner;
             }
 
             progressWindow.Show();
+            downloader.TransferProgressChanged += transfer =>
+                progressWindow.Dispatcher.BeginInvoke(
+                    () => progressWindow.SetTransferProgress(transfer));
             try
             {
+                StopOtherInstalledInstances();
                 await manager.DownloadUpdatesAsync(
                     update,
                     progress => progressWindow.Dispatcher.BeginInvoke(
                         () => progressWindow.SetProgress(progress)));
+
+                var pendingUpdate = manager.UpdatePendingRestart;
+                if (pendingUpdate is null ||
+                    !string.Equals(
+                        pendingUpdate.Version.ToString(),
+                        targetVersion,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"The downloaded update was not prepared correctly. Expected {targetVersion}, " +
+                        $"pending={pendingUpdate?.Version}.");
+                }
+
+                _log.Info(
+                    "Update",
+                    $"Update download verified; pending={pendingUpdate.Version}, file={pendingUpdate.FileName}");
+                progressWindow.SetInstalling();
+
+                _log.Info("Update", $"Applying verified update; target={targetVersion}");
                 progressWindow.AllowClose();
                 progressWindow.Close();
+                manager.ApplyUpdatesAndRestart(pendingUpdate);
+                throw new InvalidOperationException("The updater returned without restarting the application.");
             }
             catch
             {
@@ -109,9 +151,6 @@ public sealed class AppUpdateService
                 progressWindow.Close();
                 throw;
             }
-
-            _log.Info("Update", $"Update downloaded; applying target={targetVersion}");
-            manager.ApplyUpdatesAndRestart(update.TargetFullRelease);
         }
         catch (NotInstalledException exception)
         {
@@ -159,6 +198,79 @@ public sealed class AppUpdateService
         finally
         {
             _updateLock.Release();
+        }
+    }
+
+    private static string? SelectDownloadDirectory(Window? owner)
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var defaultDirectory = Path.Combine(userProfile, "Downloads");
+        if (!Directory.Exists(defaultDirectory))
+        {
+            defaultDirectory = userProfile;
+        }
+
+        var dialog = new OpenFolderDialog
+        {
+            Title = "选择更新包下载位置",
+            InitialDirectory = defaultDirectory,
+            Multiselect = false
+        };
+        var accepted = owner is null
+            ? dialog.ShowDialog()
+            : dialog.ShowDialog(owner);
+        return accepted == true ? dialog.FolderName : null;
+    }
+
+    private void StopOtherInstalledInstances()
+    {
+        var currentProcessId = Environment.ProcessId;
+        var currentExecutable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(currentExecutable))
+        {
+            return;
+        }
+
+        var processName = Path.GetFileNameWithoutExtension(currentExecutable);
+        foreach (var process in Process.GetProcessesByName(processName))
+        {
+            using (process)
+            {
+                if (process.Id == currentProcessId)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var otherExecutable = process.MainModule?.FileName;
+                    if (!string.Equals(
+                            otherExecutable,
+                            currentExecutable,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    _log.Info(
+                        "Update",
+                        $"Stopping duplicate installed instance before update; pid={process.Id}");
+                    process.Kill(entireProcessTree: true);
+                    if (!process.WaitForExit(milliseconds: 5000))
+                    {
+                        throw new InvalidOperationException(
+                            $"Duplicate process {process.Id} did not exit before the update.");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _log.Error(
+                        "Update",
+                        $"Failed to stop duplicate installed instance; pid={process.Id}",
+                        exception);
+                    throw;
+                }
+            }
         }
     }
 

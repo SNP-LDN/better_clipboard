@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <StartupObject>BetterClipboard.App</StartupObject>
     <ApplicationIcon>Assets\Brand\better-clipboard.ico</ApplicationIcon>
-    <VersionPrefix>1.0.7</VersionPrefix>
+    <VersionPrefix>1.0.8</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>

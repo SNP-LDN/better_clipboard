@@ -4,6 +4,21 @@
 
 This file documents notable feature and interface changes to Better Clipboard.
 
+## 1.0.8 - 2026-07-28
+
+### Improved
+
+- Update packages now use four parallel download segments when supported, with automatic fallback to a resumable single-stream download.
+- Users can choose the update package download directory after confirming an update, and the downloaded package remains in that location.
+- The update window now shows downloaded size, total size, and live download speed.
+- The connection timeout is now 15 seconds so a failed connection no longer remains at zero bytes for an extended period.
+
+### Fixed
+
+- Better Clipboard now allows only one background instance, preventing competing update checks, locked update state, and duplicate downloads.
+- A downloaded package is now checked against the expected pending version before installation and restart.
+- Duplicate background processes left by older versions are stopped before applying an update so they cannot keep the old application files locked.
+
 ## 1.0.7 - 2026-07-28
 
 ### Added

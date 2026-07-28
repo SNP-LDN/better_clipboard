@@ -21,9 +21,19 @@ public partial class App : System.Windows.Application
     {
         VelopackApp.Build().Run();
 
+        using var singleInstance = new Mutex(
+            initiallyOwned: true,
+            name: @"Local\BetterClipboard.SingleInstance",
+            createdNew: out var isFirstInstance);
+        if (!isFirstInstance)
+        {
+            return;
+        }
+
         var app = new App();
         app.InitializeComponent();
         app.Run();
+        GC.KeepAlive(singleInstance);
     }
 
     protected override void OnStartup(StartupEventArgs e)
