@@ -4,6 +4,30 @@
 
 This file documents notable feature and interface changes to Better Clipboard.
 
+## 1.0.7 - 2026-07-28
+
+### Added
+
+- Added custom favorite folders with create, filter, and delete actions. New favorites are placed in the Base Favorites folder by default.
+- Deleting a custom folder now moves its contents to Base Favorites without losing their favorite status.
+- Added checkbox-based batch actions for adding or moving items to a folder, with selections cleared automatically after completion.
+- Added a batch Remove from Favorites action. Removed items remain available in regular clipboard history.
+- Added a title-bar pin toggle. A pinned window stays on top and remains open when it loses focus, pastes an item, or opens an image preview.
+
+### Improved
+
+- The most recently copied item now always appears first, including existing items copied again.
+- Favorite items now use a yellow filled star and a complete yellow card border for clearer recognition.
+- Moving items to a favorite folder now requires pressing Confirm after choosing the destination, reducing accidental moves.
+- Remove from Favorites now appears as a separate management action instead of sharing the add-or-move row.
+- Folder deletion, selected-item deletion, default restoration, and settings validation prompts now use an in-app confirmation layer instead of separate system windows.
+
+### Fixed
+
+- Fixed folder selectors displaying internal object IDs and type names instead of folder names.
+- Fixed the main popup closing from focus loss before the Delete Folder confirmation could appear.
+- Fixed the yellow bottom border of favorite cards being hidden by adjacent list items.
+
 ## 1.0.4 - 2026-07-22
 
 ### Fixed

@@ -17,6 +17,7 @@ public sealed class ClipboardListItem
         Id = item.Id;
         PreviewText = item.PreviewText;
         IsFavorite = item.IsFavorite;
+        FavoriteFolderId = item.FavoriteFolderId;
         SourceApp = item.SourceApp;
         LastCopiedAt = item.LastCopiedAt;
         TimeGroup = BuildTimeGroup(item.LastCopiedAt);
@@ -58,6 +59,7 @@ public sealed class ClipboardListItem
         }
     }
     public bool IsFavorite { get; }
+    public Guid? FavoriteFolderId { get; }
     public string SourceApp { get; }
     public DateTimeOffset LastCopiedAt { get; }
     public string TimeGroup { get; }

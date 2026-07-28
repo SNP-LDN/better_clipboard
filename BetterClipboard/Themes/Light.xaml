@@ -18,5 +18,6 @@
     <SolidColorBrush x:Key="AccentBrush" Color="#2F7467" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="#285F56" />
     <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="FavoriteBrush" Color="#D99A00" />
     <SolidColorBrush x:Key="DangerBrush" Color="#B24545" />
 </ResourceDictionary>

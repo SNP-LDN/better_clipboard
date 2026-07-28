@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Windows;
 using Velopack;
@@ -131,18 +134,55 @@ public sealed class AppUpdateService
             _log.Error("Update", "Downloaded update checksum validation failed", exception);
             ShowMessage(owner, "更新文件校验失败，请稍后重试。", MessageBoxImage.Error);
         }
+        catch (Exception exception) when (IsNetworkException(exception))
+        {
+            _log.Error("Update", "Network error while checking or downloading updates", exception);
+            if (interactive)
+            {
+                ShowMessage(
+                    owner,
+                    "网络错误：无法连接更新服务。请检查网络连接后重试。",
+                    MessageBoxImage.Warning);
+            }
+        }
         catch (Exception exception)
         {
             _log.Error("Update", "Update check or download failed", exception);
             if (interactive)
             {
-                ShowMessage(owner, "暂时无法连接更新服务，请检查网络后重试。", MessageBoxImage.Warning);
+                ShowMessage(
+                    owner,
+                    "检查更新失败，暂时无法判断是否有新版本。请稍后重试。",
+                    MessageBoxImage.Error);
             }
         }
         finally
         {
             _updateLock.Release();
         }
+    }
+
+    private static bool IsNetworkException(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is HttpRequestException httpException &&
+                (httpException.StatusCode is null ||
+                 httpException.StatusCode == HttpStatusCode.RequestTimeout))
+            {
+                return true;
+            }
+
+            if (current is WebException or
+                SocketException or
+                TimeoutException or
+                TaskCanceledException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static MessageBoxResult ShowQuestion(Window? owner, string message)
