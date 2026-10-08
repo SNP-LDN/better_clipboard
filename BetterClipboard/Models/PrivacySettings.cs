@@ -1,5 +1,11 @@
 namespace BetterClipboard.Models;
 
+public enum AppLanguage
+{
+    Chinese,
+    English
+}
+
 public enum AppThemeMode
 {
     System,
@@ -15,6 +21,7 @@ public enum AppThemePreset
 
 public sealed class PrivacySettings
 {
+    public AppLanguage Language { get; set; } = AppLanguage.Chinese;
     public int RetentionDays { get; set; } = 20;
     public DateTimeOffset? PauseUntil { get; set; }
     public bool IgnoreImages { get; set; }

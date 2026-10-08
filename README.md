@@ -18,6 +18,7 @@ The app is designed for day-to-day copying across text, file paths, and images, 
 - Searches history by clip preview text or source application.
 - Groups history by time: Today, Yesterday, This Week, Last Week, This Month, Last Month, and Older.
 - Supports tabs for all history, favorites, and settings.
+- Switches between Chinese and English instantly in Settings → Language and remembers the choice.
 - Pastes the selected item back into the previous target window by double-clicking or pressing `Enter`.
 - Shows image thumbnails in history and opens a larger image preview with right-click.
 - Tracks source application, copy count, copied time, content size, and item type.
@@ -136,6 +137,7 @@ Better Clipboard 是一个基于 WPF 的 Windows 剪贴板历史工具。它会�
 - 支持删除单条或批量删除所选记录，也可以清空所有未收藏记录。
 - 支持暂停记录 5 分钟、30 分钟，或暂停到手动恢复。
 - 设置中可调整保留天数、图片保存开关、应用黑名单、主题模式和界面风格。
+- 可在「设置 → 语言」中即时切换中文和英文，并自动记住语言选择。
 - 支持浅色、深色、跟随系统主题，以及标准和玻璃两种界面风格。
 - 标题栏支持图钉固定模式，使历史窗口保持置顶且不会自动关闭。
 - 支持通过 GitHub Releases 检查更新，校验更新包后自动安装并重启。

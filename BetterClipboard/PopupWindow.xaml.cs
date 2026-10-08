@@ -45,6 +45,7 @@ public partial class PopupWindow : Window
         _store = store;
         _pasteCallback = pasteCallback;
         _settings = settings;
+        AppLocalization.Apply(_settings.Settings.Language);
         _log = log;
         GlassOpacitySlider.ValueChanged += GlassOpacitySlider_ValueChanged;
         _historyView = CreateGroupedView(_items);
@@ -105,7 +106,7 @@ public partial class PopupWindow : Window
     {
         _currentProcess.Refresh();
         var memoryInMegabytes = _currentProcess.PrivateMemorySize64 / 1024d / 1024d;
-        MemoryUsageText.Text = $"内存 {memoryInMegabytes:0} MB";
+        MemoryUsageText.Text = AppLocalization.Text("内存 {0:0} MB", memoryInMegabytes);
     }
 
     private static ListCollectionView CreateGroupedView(ObservableCollection<ClipboardListItem> items)
@@ -154,18 +155,18 @@ public partial class PopupWindow : Window
         SearchPanel.Visibility = IsSettingsTabActive() ? Visibility.Collapsed : Visibility.Visible;
         if (IsSettingsTabActive())
         {
-            StatusText.Text = _settingsStatusMessage ?? "设置变更需要点击保存。";
+            StatusText.Text = _settingsStatusMessage ?? AppLocalization.Text("设置变更需要点击保存。");
             return;
         }
 
         var activeCount = IsFavoritesTabActive() ? _favoriteItems.Count : _items.Count;
         StatusText.Text = IsFavoritesTabActive() && _selectedItemIds.Count > 0
-            ? $"已选择 {_selectedItemIds.Count} 条内容；可加入目标收藏夹或移出收藏。"
+            ? AppLocalization.Text("已选择 {0} 条内容；可加入目标收藏夹或移出收藏。", _selectedItemIds.Count)
             : activeCount == 0
-            ? "没有匹配内容"
+            ? AppLocalization.Text("没有匹配内容")
             : IsFavoritesTabActive()
-                ? "选择收藏后，可将它移动到其他收藏夹。"
-                : "双击或按 Enter 粘贴；星标后永久保留。";
+                ? AppLocalization.Text("选择收藏后，可将它移动到其他收藏夹。")
+                : AppLocalization.Text("双击或按 Enter 粘贴；星标后永久保留。");
     }
 
     private ClipboardListItem CreateListItem(ClipboardItem item)
@@ -188,7 +189,9 @@ public partial class PopupWindow : Window
         }
 
         var folders = _store.FavoriteFolders
-            .Select(folder => new FavoriteFolderChoice(folder.Id, folder.Name))
+            .Select(folder => new FavoriteFolderChoice(folder.Id,
+                folder.Id == ClipboardStore.DefaultFavoriteFolderId
+                    ? AppLocalization.Text("基础收藏夹") : folder.Name))
             .ToList();
         if (_favoriteFolderFilterId is not null &&
             folders.All(folder => folder.Id != _favoriteFolderFilterId))
@@ -198,7 +201,7 @@ public partial class PopupWindow : Window
 
         var filters = new List<FavoriteFolderChoice>
         {
-            new(null, "全部收藏夹")
+            new(null, AppLocalization.Text("全部收藏夹"))
         };
         filters.AddRange(folders);
 
@@ -389,12 +392,12 @@ public partial class PopupWindow : Window
 
         var itemCount = _store.Items.Count(item => item.IsFavorite && item.FavoriteFolderId == folderId);
         var message = itemCount == 0
-            ? $"确定删除收藏夹“{folder.Name}”吗？"
-            : $"确定删除收藏夹“{folder.Name}”吗？其中 {itemCount} 条收藏将移动到“基础收藏夹”。";
+            ? AppLocalization.Text("确定删除收藏夹“{0}”吗？", folder.Name)
+            : AppLocalization.Text("确定删除收藏夹“{0}”吗？其中 {1} 条收藏将移动到“基础收藏夹”。", folder.Name, itemCount);
         ShowInAppDialog(
-            "删除收藏夹",
+            AppLocalization.Text("删除收藏夹"),
             message,
-            "删除",
+            AppLocalization.Text("删除"),
             () =>
             {
                 _favoriteFolderFilterId = ClipboardStore.DefaultFavoriteFolderId;
@@ -402,10 +405,10 @@ public partial class PopupWindow : Window
                 _selectedItemIds.Clear();
                 Refresh();
                 StatusText.Text = movedCount is null
-                    ? "收藏夹未删除。"
+                    ? AppLocalization.Text("收藏夹未删除。")
                     : movedCount == 0
-                        ? $"已删除收藏夹“{folder.Name}”。"
-                        : $"已删除收藏夹“{folder.Name}”，并将 {movedCount} 条收藏移动到“基础收藏夹”。";
+                        ? AppLocalization.Text("已删除收藏夹“{0}”。", folder.Name)
+                        : AppLocalization.Text("已删除收藏夹“{0}”，并将 {1} 条收藏移动到“基础收藏夹”。", folder.Name, movedCount);
             });
         e.Handled = true;
     }
@@ -430,14 +433,14 @@ public partial class PopupWindow : Window
     {
         if (FavoriteDestinationBox.SelectedItem is not FavoriteFolderChoice { Id: { } folderId } folder)
         {
-            StatusText.Text = "请先选择目标收藏夹。";
+            StatusText.Text = AppLocalization.Text("请先选择目标收藏夹。");
             return;
         }
 
         var candidateIds = GetFavoriteMoveCandidateIds();
         if (candidateIds.Count == 0)
         {
-            StatusText.Text = "请先选择要移动的收藏内容。";
+            StatusText.Text = AppLocalization.Text("请先选择要移动的收藏内容。");
             return;
         }
 
@@ -445,8 +448,8 @@ public partial class PopupWindow : Window
         _selectedItemIds.Clear();
         Refresh();
         StatusText.Text = movedCount == 0
-            ? "所选内容已经在这个收藏夹中。"
-            : $"已将 {movedCount} 条内容加入“{folder.Name}”。";
+            ? AppLocalization.Text("所选内容已经在这个收藏夹中。")
+            : AppLocalization.Text("已将 {0} 条内容加入“{1}”。", movedCount, folder.Name);
         e.Handled = true;
     }
 
@@ -455,7 +458,7 @@ public partial class PopupWindow : Window
         var candidateIds = GetFavoriteRemovalCandidateIds();
         if (candidateIds.Count == 0)
         {
-            StatusText.Text = "请先选择要移出的收藏内容。";
+            StatusText.Text = AppLocalization.Text("请先选择要移出的收藏内容。");
             return;
         }
 
@@ -463,8 +466,8 @@ public partial class PopupWindow : Window
         _selectedItemIds.Clear();
         Refresh();
         StatusText.Text = removedCount == 0
-            ? "没有可移出的收藏内容。"
-            : $"已将 {removedCount} 条内容移出收藏夹。";
+            ? AppLocalization.Text("没有可移出的收藏内容。")
+            : AppLocalization.Text("已将 {0} 条内容移出收藏夹。", removedCount);
         e.Handled = true;
     }
 
@@ -490,7 +493,7 @@ public partial class PopupWindow : Window
         var name = NewFavoriteFolderNameBox.Text.Trim();
         if (name.Length is < 1 or > 40)
         {
-            StatusText.Text = "收藏夹名称需要 1 到 40 个字符。";
+            StatusText.Text = AppLocalization.Text("收藏夹名称需要 1 到 40 个字符。");
             NewFavoriteFolderNameBox.Focus();
             return;
         }
@@ -498,7 +501,7 @@ public partial class PopupWindow : Window
         var folder = _store.CreateFavoriteFolder(name);
         if (folder is null)
         {
-            StatusText.Text = "已存在同名收藏夹。";
+            StatusText.Text = AppLocalization.Text("已存在同名收藏夹。");
             NewFavoriteFolderNameBox.Focus();
             NewFavoriteFolderNameBox.SelectAll();
             return;
@@ -506,7 +509,7 @@ public partial class PopupWindow : Window
 
         NewFavoriteFolderNameBox.Clear();
         Refresh();
-        StatusText.Text = $"已新建收藏夹“{folder.Name}”。";
+        StatusText.Text = AppLocalization.Text("已新建收藏夹“{0}”。", folder.Name);
     }
 
     private void ShowInAppDialog(
@@ -670,10 +673,10 @@ public partial class PopupWindow : Window
         }
 
         CaptureStatusText.Text = !_settings.Settings.IsPaused
-            ? "正在记录剪贴板变化。"
+            ? AppLocalization.Text("正在记录剪贴板变化。")
             : _settings.Settings.PauseUntil == DateTimeOffset.MaxValue
-                ? "已暂停，直到手动恢复。"
-                : $"已暂停，预计恢复时间：{_settings.Settings.PauseUntil:yyyy-MM-dd HH:mm}";
+                ? AppLocalization.Text("已暂停，直到手动恢复。")
+                : AppLocalization.Text("已暂停，预计恢复时间：{0:yyyy-MM-dd HH:mm}", _settings.Settings.PauseUntil);
     }
 
     private void LoadSettingsInputs()
@@ -698,6 +701,7 @@ public partial class PopupWindow : Window
             BlockedAppsBox.Text = string.Join(Environment.NewLine, _settings.Settings.BlockedApps);
             SelectComboBoxTag(ThemeModeBox, _settings.Settings.ThemeMode.ToString());
             SelectComboBoxTag(ThemePresetBox, _settings.Settings.ThemePreset.ToString());
+            SelectComboBoxTag(LanguageBox, AppLocalization.Language.ToString());
             GlassOpacitySlider.Value = Math.Clamp(_settings.Settings.GlassOpacity, 55, 95);
             GlassOpacityText.Text = $"{GlassOpacitySlider.Value:0}%";
             UpdateGlassOpacityVisibility();
@@ -707,6 +711,25 @@ public partial class PopupWindow : Window
         {
             _isLoadingSettings = false;
         }
+    }
+
+    private void Language_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSettings || LanguageBox?.SelectedItem is not ComboBoxItem item ||
+            !Enum.TryParse(item.Tag?.ToString(), out AppLanguage language) ||
+            language == AppLocalization.Language)
+        {
+            return;
+        }
+
+        _settings.Settings.Language = language;
+        _settings.Save();
+        AppLocalization.Apply(language);
+        _settingsStatusMessage = AppLocalization.Text("语言已更新。");
+        PinButton.ToolTip = AppLocalization.Text(_isPinned ? "取消固定窗口" : "固定窗口");
+        Refresh();
+        UpdateMemoryUsage();
+        e.Handled = true;
     }
 
     private void Appearance_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -725,7 +748,7 @@ public partial class PopupWindow : Window
         UpdateGlassOpacityVisibility();
         _settings.Save();
         ThemeManager.Apply(_settings.Settings);
-        _settingsStatusMessage = "外观已更新。";
+        _settingsStatusMessage = AppLocalization.Text("外观已更新。");
         if (StatusText is not null)
         {
             StatusText.Text = _settingsStatusMessage;
@@ -749,7 +772,7 @@ public partial class PopupWindow : Window
         _settings.Settings.GlassOpacity = (int)Math.Round(e.NewValue);
         _settings.Save();
         ThemeManager.Apply(_settings.Settings);
-        _settingsStatusMessage = "玻璃透明度已更新。";
+        _settingsStatusMessage = AppLocalization.Text("玻璃透明度已更新。");
         if (StatusText is not null)
         {
             StatusText.Text = _settingsStatusMessage;
@@ -785,9 +808,9 @@ public partial class PopupWindow : Window
             retentionDays > 3650)
         {
             ShowInAppDialog(
-                "设置未保存",
-                "保留天数请输入 1 到 3650 之间的整数。",
-                "知道了",
+                AppLocalization.Text("设置未保存"),
+                AppLocalization.Text("保留天数请输入 1 到 3650 之间的整数。"),
+                AppLocalization.Text("知道了"),
                 () =>
                 {
                     RetentionDaysBox.Focus();
@@ -806,7 +829,7 @@ public partial class PopupWindow : Window
             .ToList();
         _settings.Save();
 
-        _settingsStatusMessage = "设置已保存。";
+        _settingsStatusMessage = AppLocalization.Text("设置已保存。");
         RefreshCaptureStatus();
         StatusText.Text = _settingsStatusMessage;
         e.Handled = true;
@@ -815,16 +838,19 @@ public partial class PopupWindow : Window
     private void ResetDefaults_Click(object sender, RoutedEventArgs e)
     {
         ShowInAppDialog(
-            "恢复默认值",
-            "恢复默认值会覆盖当前保留天数、图片保存开关、应用黑名单，并恢复剪贴板记录。是否继续？",
-            "恢复",
+            AppLocalization.Text("恢复默认值"),
+            AppLocalization.Text("恢复默认值会重置保留天数、图片保存开关、应用黑名单、外观及语言，并恢复剪贴板记录。是否继续？"),
+            AppLocalization.Text("恢复"),
             () =>
             {
                 _settings.ResetToDefaults();
+                AppLocalization.Apply(_settings.Settings.Language);
                 ThemeManager.Apply(_settings.Settings);
                 LoadSettingsInputs();
-                _settingsStatusMessage = "已恢复默认值。";
-                RefreshCaptureStatus();
+                _settingsStatusMessage = AppLocalization.Text("已恢复默认值。");
+                PinButton.ToolTip = AppLocalization.Text(_isPinned ? "取消固定窗口" : "固定窗口");
+                Refresh();
+                UpdateMemoryUsage();
                 StatusText.Text = _settingsStatusMessage;
             });
         e.Handled = true;
@@ -833,28 +859,28 @@ public partial class PopupWindow : Window
     private void PauseFiveMinutes_Click(object sender, RoutedEventArgs e)
     {
         _settings.PauseFor(TimeSpan.FromMinutes(5));
-        _settingsStatusMessage = "暂停设置已更新。";
+        _settingsStatusMessage = AppLocalization.Text("暂停设置已更新。");
         Refresh();
     }
 
     private void PauseThirtyMinutes_Click(object sender, RoutedEventArgs e)
     {
         _settings.PauseFor(TimeSpan.FromMinutes(30));
-        _settingsStatusMessage = "暂停设置已更新。";
+        _settingsStatusMessage = AppLocalization.Text("暂停设置已更新。");
         Refresh();
     }
 
     private void PauseUntilResume_Click(object sender, RoutedEventArgs e)
     {
         _settings.PauseUntilResume();
-        _settingsStatusMessage = "暂停设置已更新。";
+        _settingsStatusMessage = AppLocalization.Text("暂停设置已更新。");
         Refresh();
     }
 
     private void ResumeCapture_Click(object sender, RoutedEventArgs e)
     {
         _settings.Resume();
-        _settingsStatusMessage = "记录已恢复。";
+        _settingsStatusMessage = AppLocalization.Text("记录已恢复。");
         Refresh();
     }
 
@@ -938,15 +964,15 @@ public partial class PopupWindow : Window
         var selectedIds = _selectedItemIds.ToArray();
         var count = selectedIds.Length;
         ShowInAppDialog(
-            "删除所选记录",
-            $"确定删除选中的 {count} 条记录吗？此操作无法撤销。",
-            "删除",
+            AppLocalization.Text("删除所选记录"),
+            AppLocalization.Text("确定删除选中的 {0} 条记录吗？此操作无法撤销。", count),
+            AppLocalization.Text("删除"),
             () =>
             {
                 var removedCount = _store.DeleteMany(selectedIds);
                 _selectedItemIds.Clear();
                 Refresh();
-                StatusText.Text = $"已删除 {removedCount} 条记录。";
+                StatusText.Text = AppLocalization.Text("已删除 {0} 条记录。", removedCount);
             });
         e.Handled = true;
     }
@@ -958,7 +984,7 @@ public partial class PopupWindow : Window
             return;
         }
 
-        DeleteSelectedButton.Content = $"删除所选 ({_selectedItemIds.Count})";
+        DeleteSelectedButton.Content = AppLocalization.Text("删除所选 ({0})", _selectedItemIds.Count);
         DeleteSelectedButton.IsEnabled = _selectedItemIds.Count > 0;
     }
 
@@ -979,10 +1005,10 @@ public partial class PopupWindow : Window
         PinIcon.SetResourceReference(
             System.Windows.Shapes.Shape.FillProperty,
             _isPinned ? "FavoriteBrush" : "TitleBarTextBrush");
-        PinButton.ToolTip = _isPinned ? "取消固定窗口" : "固定窗口";
+        PinButton.ToolTip = _isPinned ? AppLocalization.Text("取消固定窗口") : AppLocalization.Text("固定窗口");
         StatusText.Text = _isPinned
-            ? "窗口已固定，将保持在最上层。"
-            : "窗口已取消固定。";
+            ? AppLocalization.Text("窗口已固定，将保持在最上层。")
+            : AppLocalization.Text("窗口已取消固定。");
         e.Handled = true;
     }
 

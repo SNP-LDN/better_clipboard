@@ -45,6 +45,7 @@ public partial class App : System.Windows.Application
         var log = new DiagnosticLog(paths);
         _log = log;
         _settings = new SettingsService(paths);
+        AppLocalization.Apply(_settings.Settings.Language);
         _updates = new AppUpdateService(log);
         ThemeManager.Apply(_settings.Settings);
         _preferenceChangedHandler = (_, _) =>
